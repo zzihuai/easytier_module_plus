@@ -4,10 +4,10 @@
 
 当前打包版本：`v2.6.4-webui1`
 
-最终刷机包：
+仓库内已附带可刷入 zip：
 
 ```text
-/home/huai/work/easytier_magisk/EasyTier-Magisk-v2.6.4-webui1.zip
+dist/EasyTier-Magisk-v2.6.4-webui1.zip
 ```
 
 模块安装后的默认目录：
@@ -50,10 +50,10 @@
 
 ## 安装
 
-1. 将以下 zip 复制到手机：
+1. 将仓库内的以下 zip 复制到手机：
 
    ```text
-   /home/huai/work/easytier_magisk/EasyTier-Magisk-v2.6.4-webui1.zip
+   dist/EasyTier-Magisk-v2.6.4-webui1.zip
    ```
 
 2. 在 Magisk / KernelSU / APatch 中刷入该模块。
