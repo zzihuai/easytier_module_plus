@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>EasyTier 模块控制台</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">EasyTier Magisk / KernelSU / APatch</p>
+        <h1>模块控制台</h1>
+        <p class="subtitle">手动控制 core、编辑配置、更新 arm64 二进制，同时保留开机启动。</p>
+      </div>
+      <button id="refreshBtn" class="ghost">刷新</button>
+    </header>
+
+    <section class="card grid two">
+      <div>
+        <h2>运行状态</h2>
+        <div class="status-row"><span>模块</span><b id="moduleEnabled">-</b></div>
+        <div class="status-row"><span>Core</span><b id="coreState">-</b></div>
+        <div class="status-row"><span>Web</span><b id="webState">-</b></div>
+        <div class="status-row"><span>开机启动</span><b id="bootState">-</b></div>
+        <div class="status-row"><span>热点转发</span><b id="ipRuleState">-</b></div>
+      </div>
+      <div>
+        <h2>版本信息</h2>
+        <div class="mono small" id="versionInfo">加载中...</div>
+        <a id="dashboardLink" class="link" href="#">打开 EasyTier 官方 Dashboard</a>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Core 控制</h2>
+      <div class="buttons">
+        <button data-cmd="start-core">启动 core</button>
+        <button data-cmd="stop-core" class="danger">停止 core</button>
+        <button data-cmd="restart-core" class="warn">重启 core</button>
+        <button data-cmd="start-web">启动 web</button>
+        <button data-cmd="stop-web" class="danger">停止 web</button>
+        <button data-cmd="restart-web" class="warn">重启 web</button>
+      </div>
+      <div class="buttons second">
+        <button data-cmd="enable-boot">启用开机启动</button>
+        <button data-cmd="disable-boot" class="danger">关闭开机启动并停止</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <div>
+          <h2>config.toml 预览 / 编辑</h2>
+          <p>保存后不会强制重启；点击“重启 core”后生效。</p>
+        </div>
+        <div class="buttons compact">
+          <button id="loadConfigBtn">重新读取</button>
+          <button id="saveConfigBtn" class="primary">保存配置</button>
+        </div>
+      </div>
+      <textarea id="configEditor" spellcheck="false" placeholder="正在读取配置..."></textarea>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <div>
+          <h2>启动参数 command_args</h2>
+          <p>如果该文件存在，模块会优先使用启动参数模式并忽略 config.toml。</p>
+        </div>
+        <div class="buttons compact">
+          <button id="loadArgsBtn">读取</button>
+          <button id="saveArgsBtn" class="primary">保存</button>
+          <button id="removeArgsBtn" class="danger">删除</button>
+        </div>
+      </div>
+      <textarea id="argsEditor" class="short" spellcheck="false" placeholder="command_args 不存在时这里为空"></textarea>
+    </section>
+
+    <section class="card">
+      <h2>更新 EasyTier 二进制</h2>
+      <p>按 EasyTier GitHub Release 的 linux-aarch64 资产更新 `easytier-core`、`easytier-cli`、`easytier-web`。</p>
+      <div class="update-row">
+        <input id="tagInput" placeholder="latest 或 v2.6.4" value="latest" />
+        <button id="checkUpdateBtn">检查最新 Release</button>
+        <button id="updateBinaryBtn" class="primary">更新 arm64 二进制</button>
+      </div>
+      <pre id="updateInfo" class="log"></pre>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <h2>日志</h2>
+        <div class="buttons compact">
+          <button id="coreLogBtn">Core 日志</button>
+          <button id="webLogBtn">Web 日志</button>
+        </div>
+      </div>
+      <pre id="logBox" class="log"></pre>
+    </section>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

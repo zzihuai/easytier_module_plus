@@ -1,0 +1,15 @@
+# Runtime files created on Android/module execution
+module/run/
+module/log.log
+module/web.log
+module/update.lock
+module/*.bak
+module/*.new
+
+# Local extraction/download/build scratch dirs
+downloads/
+extracted/
+src/
+bin/
+*.tmp
+.DS_Store
