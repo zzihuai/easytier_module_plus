@@ -42,7 +42,6 @@ p { color: var(--muted); margin: 6px 0 12px; line-height: 1.6; }
   padding: 20px;
   margin: 16px 0;
   box-shadow: 0 20px 50px rgba(0,0,0,.22);
-  backdrop-filter: blur(16px);
 }
 .grid { display: grid; gap: 18px; }
 .two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -77,6 +76,10 @@ button:disabled { opacity: .55; cursor: wait; transform: none; }
 .buttons.second { margin-top: 10px; }
 .buttons.compact { justify-content: flex-end; }
 .section-head { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; }
+.action-status, .editor-feedback { min-height: 24px; margin: 4px 0 12px; }
+.action-status { color: var(--muted); }
+.editor-feedback { font-size: 14px; }
+.status-error { color: var(--danger) !important; }
 textarea {
   width: 100%;
   min-height: 360px;
@@ -87,7 +90,18 @@ textarea {
   background: rgba(2, 6, 23, .72);
   color: #dbeafe;
   font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  outline: none;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  caret-color: var(--primary);
+  pointer-events: auto;
+  user-select: text;
+  -webkit-user-select: text;
+  -webkit-touch-callout: default;
+  touch-action: pan-y;
+}
+textarea:focus {
+  outline-color: rgba(79, 209, 197, .8);
+  border-color: var(--primary);
 }
 textarea.short { min-height: 110px; }
 .update-row { display: grid; grid-template-columns: minmax(160px, 1fr) auto auto; gap: 10px; }
@@ -103,24 +117,6 @@ textarea.short { min-height: 110px; }
   min-height: 80px;
 }
 .small { min-height: auto; }
-.link { display: inline-block; margin-top: 12px; color: var(--primary); font-weight: 800; text-decoration: none; }
-.toast {
-  position: fixed;
-  left: 50%;
-  bottom: 24px;
-  transform: translateX(-50%) translateY(20px);
-  opacity: 0;
-  pointer-events: none;
-  max-width: min(680px, calc(100% - 32px));
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 12px 18px;
-  background: rgba(15, 23, 42, .96);
-  color: var(--text);
-  box-shadow: 0 12px 36px rgba(0,0,0,.35);
-  transition: .2s ease;
-}
-.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 @media (max-width: 760px) {
   .app { padding: 18px; }
   .hero, .section-head { flex-direction: column; }

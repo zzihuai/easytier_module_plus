@@ -16,20 +16,20 @@
       </div>
       <button id="refreshBtn" class="ghost">刷新</button>
     </header>
+    <p id="actionStatus" class="action-status" role="status" aria-live="polite">正在连接模块...</p>
 
     <section class="card grid two">
       <div>
         <h2>运行状态</h2>
         <div class="status-row"><span>模块</span><b id="moduleEnabled">-</b></div>
         <div class="status-row"><span>Core</span><b id="coreState">-</b></div>
-        <div class="status-row"><span>Web</span><b id="webState">-</b></div>
+        <div class="status-row"><span>配置</span><b id="configState">-</b></div>
         <div class="status-row"><span>开机启动</span><b id="bootState">-</b></div>
         <div class="status-row"><span>热点转发</span><b id="ipRuleState">-</b></div>
       </div>
       <div>
         <h2>版本信息</h2>
         <div class="mono small" id="versionInfo">加载中...</div>
-        <a id="dashboardLink" class="link" href="#">打开 EasyTier 官方 Dashboard</a>
       </div>
     </section>
 
@@ -39,9 +39,6 @@
         <button data-cmd="start-core">启动 core</button>
         <button data-cmd="stop-core" class="danger">停止 core</button>
         <button data-cmd="restart-core" class="warn">重启 core</button>
-        <button data-cmd="start-web">启动 web</button>
-        <button data-cmd="stop-web" class="danger">停止 web</button>
-        <button data-cmd="restart-web" class="warn">重启 web</button>
       </div>
       <div class="buttons second">
         <button data-cmd="enable-boot">启用开机启动</button>
@@ -53,14 +50,16 @@
       <div class="section-head">
         <div>
           <h2>config.toml 预览 / 编辑</h2>
-          <p>保存后不会强制重启；点击“重启 core”后生效。</p>
+          <p>配置为空时也可以直接输入；保存后不会自动重启 core。</p>
+          <p id="configFeedback" class="editor-feedback" role="status" aria-live="polite">正在读取配置...</p>
         </div>
         <div class="buttons compact">
+          <button id="editConfigBtn" type="button">开始编辑</button>
           <button id="loadConfigBtn">重新读取</button>
           <button id="saveConfigBtn" class="primary">保存配置</button>
         </div>
       </div>
-      <textarea id="configEditor" spellcheck="false" placeholder="正在读取配置..."></textarea>
+      <textarea id="configEditor" name="config" rows="16" tabindex="0" inputmode="text" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="EasyTier 配置编辑器" placeholder="正在读取配置..."></textarea>
     </section>
 
     <section class="card">
@@ -75,12 +74,12 @@
           <button id="removeArgsBtn" class="danger">删除</button>
         </div>
       </div>
-      <textarea id="argsEditor" class="short" spellcheck="false" placeholder="command_args 不存在时这里为空"></textarea>
+      <textarea id="argsEditor" name="commandArgs" rows="4" tabindex="0" inputmode="text" autocapitalize="off" autocomplete="off" autocorrect="off" class="short" spellcheck="false" aria-label="EasyTier 启动参数编辑器" placeholder="command_args 不存在时这里为空"></textarea>
     </section>
 
     <section class="card">
       <h2>更新 EasyTier 二进制</h2>
-      <p>按 EasyTier GitHub Release 的 linux-aarch64 资产更新 `easytier-core`、`easytier-cli`、`easytier-web`。</p>
+      <p>按 EasyTier GitHub Release 的 linux-aarch64 资产更新 `easytier-core` 和 `easytier-cli`。</p>
       <div class="update-row">
         <input id="tagInput" placeholder="latest 或 v2.6.4" value="latest" />
         <button id="checkUpdateBtn">检查最新 Release</button>
@@ -94,14 +93,12 @@
         <h2>日志</h2>
         <div class="buttons compact">
           <button id="coreLogBtn">Core 日志</button>
-          <button id="webLogBtn">Web 日志</button>
         </div>
       </div>
       <pre id="logBox" class="log"></pre>
     </section>
   </div>
 
-  <div id="toast" class="toast"></div>
   <script type="module" src="./app.js"></script>
 </body>
 </html>

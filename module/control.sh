@@ -12,17 +12,15 @@ Commands:
   start-core             Enable and start easytier-core now
   stop-core              Disable and stop easytier-core now
   restart-core           Restart easytier-core now
-  start-web              Enable and start easytier-web now
-  stop-web               Disable and stop easytier-web now
-  restart-web            Restart easytier-web now
+  core-version           Print the easytier-core version
   enable-boot            Enable boot startup
-  disable-boot           Disable boot startup and stop core/web
+  disable-boot           Disable boot startup and stop core
   read-config            Print config/config.toml
   write-config           Read stdin and replace config/config.toml atomically
   read-command-args      Print config/command_args if present
   write-command-args     Read stdin and replace config/command_args atomically
   remove-command-args    Remove config/command_args so config.toml is used
-  logs [web|core]        Print recent logs
+  logs                   Print recent core log
   latest                 Print latest GitHub release info as JSON
   update-binary [tag]    Download latest/tag linux-aarch64 release and update binaries
 EOF
@@ -41,6 +39,8 @@ err_json() {
 
 require_lock() {
     control_lock_acquire || err_json "无法获取控制锁，请稍后重试"
+    trap 'control_lock_release' 0
+    trap 'exit 1' 1 2 3 15
 }
 
 release_lock() {
@@ -51,65 +51,52 @@ case "${1:-}" in
     status)
         module_status_json
         ;;
+    core-version)
+        [ -x "${EASYTIER_CORE}" ] || err_json "主程序二进制缺失或不可执行"
+        core_version=$("${EASYTIER_CORE}" --version 2>/dev/null | head -n 1)
+        [ -n "${core_version}" ] || err_json "无法读取主程序版本"
+        printf '{"core_version":"%s"}\n' "$(printf '%s' "${core_version}" | json_escape)"
+        ;;
     start-core)
         require_lock
+        validate_core_config || { release_lock; err_json "配置不存在或为空，无法启动 core"; }
         rm -f "${CORE_DISABLE_FILE}"
-        start_core_once >/dev/null 2>&1 || { release_lock; err_json "easytier-core 启动失败，请查看日志"; }
+        start_core_once >/dev/null 2>&1 || { release_lock; err_json "启动失败或检测到多个 core 实例；请查看日志，必要时执行重启清理"; }
         release_lock
         ok_json "easytier-core 已启动"
         ;;
     stop-core)
         require_lock
         touch "${CORE_DISABLE_FILE}"
-        kill_core
+        kill_core || { release_lock; err_json "无法停止 easytier-core"; }
         update_module_description "主程序已关闭 | $(redir_status)"
         release_lock
         ok_json "easytier-core 已停止"
         ;;
     restart-core)
         require_lock
+        validate_core_config || { release_lock; err_json "配置不存在或为空，无法重启 core"; }
+        kill_core || { release_lock; err_json "无法停止 easytier-core"; }
         rm -f "${CORE_DISABLE_FILE}"
-        kill_core
-        sleep 1
         start_core_once >/dev/null 2>&1 || { release_lock; err_json "easytier-core 重启失败，请查看日志"; }
         release_lock
         ok_json "easytier-core 已重启"
         ;;
-    start-web)
-        require_lock
-        rm -f "${WEB_DISABLE_FILE}"
-        start_web_once >/dev/null 2>&1 || { release_lock; err_json "easytier-web 启动失败，请查看 web.log"; }
-        release_lock
-        ok_json "easytier-web 已启动"
-        ;;
-    stop-web)
-        require_lock
-        touch "${WEB_DISABLE_FILE}"
-        kill_web
-        release_lock
-        ok_json "easytier-web 已停止"
-        ;;
-    restart-web)
-        require_lock
-        rm -f "${WEB_DISABLE_FILE}"
-        kill_web
-        sleep 1
-        start_web_once >/dev/null 2>&1 || { release_lock; err_json "easytier-web 重启失败，请查看 web.log"; }
-        release_lock
-        ok_json "easytier-web 已重启"
-        ;;
     enable-boot)
+        require_lock
         touch "${START_ON_BOOT_FILE}"
-        rm -f "${CORE_DISABLE_FILE}" "${WEB_DISABLE_FILE}"
-        ok_json "开机启动已启用；core/web 将在下次开机时自动启动"
+        rm -f "${CORE_DISABLE_FILE}"
+        release_lock
+        ok_json "开机启动已启用；core 将在下次开机时自动启动"
         ;;
     disable-boot)
+        require_lock
         rm -f "${START_ON_BOOT_FILE}"
-        touch "${CORE_DISABLE_FILE}" "${WEB_DISABLE_FILE}"
-        kill_core
-        kill_web
+        touch "${CORE_DISABLE_FILE}"
+        kill_core || { release_lock; err_json "无法停止 easytier-core"; }
         update_module_description "开机启动已关闭 | $(redir_status)"
-        ok_json "开机启动已禁用，core/web 已停止"
+        release_lock
+        ok_json "开机启动已禁用，core 已停止"
         ;;
     read-config)
         [ -f "${CONFIG_FILE}" ] || exit 0
@@ -118,10 +105,10 @@ case "${1:-}" in
     write-config)
         mkdir -p "${CONFIG_DIR}"
         tmp="${CONFIG_FILE}.tmp.$$"
-        cat > "${tmp}"
-        chmod 0644 "${tmp}" 2>/dev/null || true
-        mv "${tmp}" "${CONFIG_FILE}"
-        log_msg "config.toml updated from WebUI/control"
+        cat > "${tmp}" || { rm -f "${tmp}"; err_json "写入配置临时文件失败"; }
+        chmod 0644 "${tmp}" 2>/dev/null || { rm -f "${tmp}"; err_json "设置配置文件权限失败"; }
+        mv "${tmp}" "${CONFIG_FILE}" || { rm -f "${tmp}"; err_json "替换配置文件失败"; }
+        log_msg "config.toml updated from module control"
         ok_json "配置已保存；如需生效请重启 core"
         ;;
     read-command-args)
@@ -131,10 +118,10 @@ case "${1:-}" in
     write-command-args)
         mkdir -p "${CONFIG_DIR}"
         tmp="${COMMAND_ARGS}.tmp.$$"
-        cat > "${tmp}"
-        chmod 0644 "${tmp}" 2>/dev/null || true
-        mv "${tmp}" "${COMMAND_ARGS}"
-        log_msg "command_args updated from WebUI/control"
+        cat > "${tmp}" || { rm -f "${tmp}"; err_json "写入参数临时文件失败"; }
+        chmod 0644 "${tmp}" 2>/dev/null || { rm -f "${tmp}"; err_json "设置参数文件权限失败"; }
+        mv "${tmp}" "${COMMAND_ARGS}" || { rm -f "${tmp}"; err_json "替换参数文件失败"; }
+        log_msg "command_args updated from module control"
         ok_json "启动参数已保存；当前会优先使用 command_args"
         ;;
     remove-command-args)
@@ -142,10 +129,7 @@ case "${1:-}" in
         ok_json "command_args 已删除；下次启动将使用 config.toml"
         ;;
     logs)
-        case "${2:-core}" in
-            web) file="${MODDIR}/web.log" ;;
-            core|*) file="${LOG_FILE}" ;;
-        esac
+        file="${LOG_FILE}"
         [ -f "${file}" ] || exit 0
         tail -n 200 "${file}"
         ;;
@@ -163,7 +147,6 @@ case "${1:-}" in
         printf '{"tag":"%s","asset":"%s"}\n' "$(printf '%s' "${tag}" | json_escape)" "$(printf '%s' "${asset}" | json_escape)"
         ;;
     update-binary)
-        require_lock
         tag="${2:-latest}"
         tmpdir="${RUN_DIR}/update.$$"
         mkdir -p "${tmpdir}" || { release_lock; err_json "无法创建临时目录"; }
@@ -185,29 +168,36 @@ case "${1:-}" in
             wget -O "${tmpdir}/easytier-linux-aarch64.zip" "${asset}" || { rm -rf "${tmpdir}"; release_lock; err_json "下载 linux-aarch64 资产失败"; }
         fi
         unzip -o "${tmpdir}/easytier-linux-aarch64.zip" -d "${tmpdir}/unzip" >/dev/null 2>&1 || { rm -rf "${tmpdir}"; release_lock; err_json "解压 linux-aarch64 资产失败"; }
-        for bin in easytier-core easytier-cli easytier-web; do
+        for bin in easytier-core easytier-cli; do
             src=$(find "${tmpdir}/unzip" -type f -name "${bin}" | head -n 1)
             [ -n "${src}" ] || { rm -rf "${tmpdir}"; release_lock; err_json "更新包缺少 ${bin}"; }
-            cp "${src}" "${MODDIR}/${bin}.new" || { rm -rf "${tmpdir}"; release_lock; err_json "复制 ${bin} 失败"; }
-            chmod 0755 "${MODDIR}/${bin}.new" 2>/dev/null || true
+            cp "${src}" "${tmpdir}/${bin}.new" || { rm -rf "${tmpdir}"; err_json "暂存 ${bin} 失败"; }
+            chmod 0755 "${tmpdir}/${bin}.new" 2>/dev/null || { rm -rf "${tmpdir}"; err_json "设置 ${bin} 权限失败"; }
         done
-        core_was_running=0; web_was_running=0
-        is_core_running && core_was_running=1
-        is_web_running && web_was_running=1
-        kill_core
-        kill_web
-        for bin in easytier-core easytier-cli easytier-web; do
-            [ -f "${MODDIR}/${bin}" ] && cp "${MODDIR}/${bin}" "${MODDIR}/${bin}.bak" 2>/dev/null || true
-            mv "${MODDIR}/${bin}.new" "${MODDIR}/${bin}"
-            chmod 0755 "${MODDIR}/${bin}" 2>/dev/null || true
+
+        require_lock
+        core_process_records || { rm -rf "${tmpdir}"; release_lock; err_json "无法确认 core 进程，取消二进制更新"; }
+        core_was_running=0
+        [ "${CORE_PROCESS_COUNT}" -gt 0 ] && core_was_running=1
+        kill_core || { rm -rf "${tmpdir}"; release_lock; err_json "停止 core 失败，取消二进制更新"; }
+        for bin in easytier-core easytier-cli; do
+            cp "${tmpdir}/${bin}.new" "${MODDIR}/${bin}.new.$$" || { rm -rf "${tmpdir}"; release_lock; err_json "复制 ${bin} 到安装目录失败"; }
+            if [ -f "${MODDIR}/${bin}" ]; then
+                cp -p "${MODDIR}/${bin}" "${MODDIR}/${bin}.bak.new.$$" || { rm -f "${MODDIR}/${bin}.new.$$"; rm -rf "${tmpdir}"; release_lock; err_json "备份 ${bin} 失败"; }
+                mv "${MODDIR}/${bin}.bak.new.$$" "${MODDIR}/${bin}.bak" || { rm -f "${MODDIR}/${bin}.new.$$"; rm -rf "${tmpdir}"; release_lock; err_json "保存 ${bin} 备份失败"; }
+            fi
+            chmod 0755 "${MODDIR}/${bin}.new.$$" 2>/dev/null || { rm -rf "${tmpdir}"; release_lock; err_json "设置 ${bin} 权限失败"; }
+            mv "${MODDIR}/${bin}.new.$$" "${MODDIR}/${bin}" || { rm -rf "${tmpdir}"; release_lock; err_json "替换 ${bin} 失败"; }
         done
-        [ "${core_was_running}" = 1 ] && rm -f "${CORE_DISABLE_FILE}" && start_core_once >/dev/null 2>&1 || true
-        [ "${web_was_running}" = 1 ] && rm -f "${WEB_DISABLE_FILE}" && start_web_once >/dev/null 2>&1 || true
+        if [ "${core_was_running}" = 1 ]; then
+            rm -f "${CORE_DISABLE_FILE}"
+            start_core_once >/dev/null 2>&1 || { rm -rf "${tmpdir}"; release_lock; err_json "二进制已更新，但 core 恢复启动失败"; }
+        fi
         echo "${rel_tag}" > "${CONFIG_DIR}/binary_version"
-        log_msg "binaries updated to ${rel_tag} from ${asset}"
+        log_msg "core and cli binaries updated to ${rel_tag} from ${asset}"
         rm -rf "${tmpdir}"
         release_lock
-        ok_json "二进制已更新到 ${rel_tag}"
+        ok_json "Core/CLI 二进制已更新到 ${rel_tag}"
         ;;
     -h|--help|help|"")
         usage

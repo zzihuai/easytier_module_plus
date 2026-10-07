@@ -1,13 +1,13 @@
-# EasyTier Magisk WebUI 模块
+# EasyTier Magisk 模块
 
-这是基于 [EasyTier/EasyTier](https://github.com/EasyTier/EasyTier) Android/Magisk 模块重构的 WebUI 版本，用于在 Magisk / KernelSU / APatch 环境中运行 EasyTier，并提供模块内控制台。
+这是基于 [EasyTier/EasyTier](https://github.com/EasyTier/EasyTier) 的 Android 模块，用于在 Magisk / KernelSU / APatch 环境中运行 EasyTier，并通过管理器模块前端提供控制台。
 
-当前打包版本：`v2.6.4-webui1`
+当前打包版本：`v2.6.4-module-ui3`
 
 仓库内已附带可刷入 zip：
 
 ```text
-dist/EasyTier-Magisk-v2.6.4-webui1.zip
+dist/EasyTier-Magisk-v2.6.4-module-ui3.zip
 ```
 
 模块安装后的默认目录：
@@ -22,15 +22,13 @@ dist/EasyTier-Magisk-v2.6.4-webui1.zip
 - 内置 EasyTier `v2.6.4` arm64/aarch64 二进制：
   - `easytier-core`
   - `easytier-cli`
-  - `easytier-web`
-- 新增模块 WebUI：
-  - 查看模块、core、web、开机启动、热点转发状态。
+- 管理器模块前端：
+  - 查看模块、core、配置、开机启动、热点转发状态。
   - 手动启动 / 停止 / 重启 `easytier-core`。
-  - 手动启动 / 停止 / 重启 `easytier-web`。
   - 启用 / 关闭开机启动。
   - 预览和编辑 `config.toml`。
   - 预览、编辑和删除 `command_args`。
-  - 查看 core/web 日志。
+  - 查看 core 日志。
   - 从 EasyTier GitHub Release 检查并更新 linux-aarch64 二进制。
 - 保留热点/USB 子网转发开关逻辑，可通过模块 action 或脚本控制。
 
@@ -44,36 +42,41 @@ dist/EasyTier-Magisk-v2.6.4-webui1.zip
 
 但需要注意：
 
-- 模块 WebUI 依赖 KernelSU/APatch 风格的 WebUI API，即 `window.ksu.exec`。
-- 在支持 WebUI 的管理器中，可以直接从模块页面打开 WebUI 控制台。
-- Magisk 官方管理器通常不提供模块 WebUI API，因此 WebUI 可能无法直接使用；这种情况下可以通过 root 终端执行 `control.sh` 完成相同操作。
+- 模块前端依赖 KernelSU/APatch 管理器提供的 `window.ksu.exec`。
+- 也可以通过 root 终端执行 `control.sh` 完成控制。
 
 ## 安装
 
 1. 将仓库内的以下 zip 复制到手机：
 
    ```text
-   dist/EasyTier-Magisk-v2.6.4-webui1.zip
+   dist/EasyTier-Magisk-v2.6.4-module-ui3.zip
    ```
 
 2. 在 Magisk / KernelSU / APatch 中刷入该模块。
 3. 重启设备。
 4. 首次安装默认启用开机启动。
 
-## WebUI 使用
+## 模块前端使用
 
-在支持模块 WebUI 的管理器中打开 `EasyTier_Magisk_WebUI` 模块页面，然后进入 WebUI。
+在 KernelSU/APatch 管理器中打开 EasyTier 模块页面，然后进入模块前端。
 
-WebUI 包含以下区域：
+模块前端包含以下区域：
 
 - 运行状态
 - Core 控制
 - `config.toml` 预览 / 编辑
 - `command_args` 启动参数编辑
-- EasyTier 二进制更新
+- EasyTier core/CLI 二进制更新
 - 日志查看
 
-保存配置后不会自动重启 core。如需让配置立即生效，请点击 WebUI 中的“重启 core”。
+保存配置后不会自动重启 core。如需让配置立即生效，请点击模块前端中的“重启 core”。
+
+配置文件不存在、零字节或只包含空白时，前端会显示具体状态；启动 core 会被拒绝。空的 `command_args` 同样不能用于启动。
+
+空配置编辑框保留原生文本输入行为；如果点按不弹出键盘，可点击“开始编辑”直接聚焦。保存和读取配置不会禁用编辑框。
+
+Core 的启动、停止、重启和守护共用进程锁。正常状态查询使用登记的 PID 快速校验；启动和停止会核对模块二进制的实际进程身份，重启会清理所有已确认的重复实例。无法确认进程时不会尝试再启动一个。
 
 ## 配置文件
 
@@ -111,11 +114,11 @@ WebUI 包含以下区域：
 
 - `command_args` 中不要写复杂 shell 引号。
 - 删除 `command_args` 后，下次启动会恢复使用 `config.toml`。
-- WebUI 中提供“删除”按钮，可直接删除 `command_args`。
+- 模块前端中提供“删除”按钮，可直接删除 `command_args`。
 
 ## 命令行控制
 
-如果无法使用 WebUI，可以通过 root 终端执行：
+也可以通过 root 终端执行：
 
 ```sh
 su
@@ -133,11 +136,6 @@ su
 /data/adb/modules/easytier_magisk/control.sh stop-core
 /data/adb/modules/easytier_magisk/control.sh restart-core
 
-# 启动 / 停止 / 重启 web
-/data/adb/modules/easytier_magisk/control.sh start-web
-/data/adb/modules/easytier_magisk/control.sh stop-web
-/data/adb/modules/easytier_magisk/control.sh restart-web
-
 # 启用 / 关闭开机启动
 /data/adb/modules/easytier_magisk/control.sh enable-boot
 /data/adb/modules/easytier_magisk/control.sh disable-boot
@@ -153,9 +151,8 @@ cat /sdcard/config.toml | /data/adb/modules/easytier_magisk/control.sh write-con
 echo '--network-name my-network --network-secret my-secret' | /data/adb/modules/easytier_magisk/control.sh write-command-args
 /data/adb/modules/easytier_magisk/control.sh remove-command-args
 
-# 查看日志
+# 查看 core 日志
 /data/adb/modules/easytier_magisk/control.sh logs core
-/data/adb/modules/easytier_magisk/control.sh logs web
 
 # 检查最新 Release
 /data/adb/modules/easytier_magisk/control.sh latest
@@ -167,36 +164,6 @@ echo '--network-name my-network --network-secret my-secret' | /data/adb/modules/
 /data/adb/modules/easytier_magisk/control.sh update-binary v2.6.4
 ```
 
-## easytier-web Dashboard
-
-模块会尝试启动 EasyTier 官方 `easytier-web`。
-
-默认监听：
-
-```text
-0.0.0.0:11211
-```
-
-访问地址：
-
-```text
-http://设备IP:11211/
-```
-
-默认 config server：
-
-```text
-udp://0.0.0.0:22020
-```
-
-可通过以下文件覆盖端口：
-
-```text
-/data/adb/modules/easytier_magisk/config/web_port
-/data/adb/modules/easytier_magisk/config/config_server_port
-/data/adb/modules/easytier_magisk/config/config_server_protocol
-```
-
 ## 日志
 
 core 日志：
@@ -205,17 +172,11 @@ core 日志：
 /data/adb/modules/easytier_magisk/log.log
 ```
 
-web 日志：
-
-```text
-/data/adb/modules/easytier_magisk/web.log
-```
-
-WebUI 中也可以直接查看最近日志。
+模块前端可以直接查看最近 core 日志。
 
 ## 二进制更新机制
 
-WebUI 或 `control.sh update-binary` 会从 EasyTier GitHub Release 中查找：
+模块前端或 `control.sh update-binary` 会从 EasyTier GitHub Release 中查找：
 
 ```text
 easytier-linux-aarch64-*.zip
@@ -225,16 +186,15 @@ easytier-linux-aarch64-*.zip
 
 - `easytier-core`
 - `easytier-cli`
-- `easytier-web`
 
 更新流程：
 
 1. 查询 GitHub Release。
 2. 下载 linux-aarch64 zip。
-3. 解压并检查三个二进制是否存在。
+3. 解压并检查 core 与 CLI 二进制是否存在。
 4. 备份旧二进制为 `.bak`。
 5. 替换新二进制并设置 0755 权限。
-6. 如果更新前 core/web 正在运行，更新后会尝试重新启动。
+6. 如果更新前 core 正在运行，更新后会尝试重新启动。
 
 ## 开机启动逻辑
 
@@ -247,9 +207,8 @@ easytier-linux-aarch64-*.zip
 存在该文件时，开机后会自动启动：
 
 - `easytier_core.sh`
-- `easytier_web.sh`
 
-关闭开机启动时会删除 `start_on_boot`，并停止 core/web。
+关闭开机启动时会删除 `start_on_boot`，并停止 core。
 
 ## 热点 / USB 子网转发
 
@@ -281,9 +240,7 @@ module/
 ├── customize.sh
 ├── easytier-cli
 ├── easytier-core
-├── easytier-web
 ├── easytier_core.sh
-├── easytier_web.sh
 ├── hotspot_iprule.sh
 ├── module.prop
 ├── service.sh
@@ -296,23 +253,16 @@ module/
     └── style.css
 ```
 
-## 构建与验证记录
+## 本地构建与测试
 
-本地已完成以下验证：
+运行 `python3 scripts/test_regressions.py` 和 `node scripts/test_frontend.mjs` 执行回归测试；Linux 主机上还会编译原生假 core，验证并发启动和多实例停止。macOS 不具备 Linux `/proc` 进程映像接口，原生进程测试会跳过。运行 `bash scripts/package.sh` 生成新安装包，再运行 `python3 scripts/verify.py dist/EasyTier-Magisk-v2.6.4-module-ui3.zip` 验证。
 
-- zip 完整性测试：通过。
-- 必需文件存在性检查：通过。
-- shell 脚本语法检查：通过。
-- WebUI 引用检查：通过。
-- `control.sh status` 冒烟测试：通过。
-- `control.sh latest` GitHub Release 查询：通过。
-- 二进制架构检查：通过。
+最终的空编辑框键盘行为仍需在 Android 管理器 WebView 上验收。
 
 ## 注意事项
 
-- 该模块使用官方 Release 中的 arm64/aarch64 二进制，不是在本机重新交叉编译得到的二进制。
-- 本机源码交叉编译时缺少 `aarch64-linux-musl-gcc`，因此最终采用官方 Release 资产，符合“以仓库 release，arm64 为准”的要求。
+- 该模块使用官方 Release 中的 arm64/aarch64 core 与 CLI 二进制。
 - 更新二进制需要手机可以访问 GitHub，并且系统中存在 `curl` 或 `wget`。
 - 修改配置后建议手动重启 core。
 - 如果 core 启动失败，优先查看 `log.log`。
-- 如果 web 启动失败，优先查看 `web.log`。
+- 配置文件缺失或仅包含空白时，前端会明确提示，core 不会以空配置启动。

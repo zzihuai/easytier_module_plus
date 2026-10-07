@@ -4,16 +4,26 @@ function getUniqueCallbackName(prefix) {
 }
 
 export function exec(command, options) {
-  if (typeof options === "undefined") {
-    options = {};
-  }
+  const { timeoutMs = 30000, ...execOptions } = options || {};
 
   return new Promise((resolve, reject) => {
-    // Generate a unique callback function name
     const callbackFuncName = getUniqueCallbackName("exec");
+    let settled = false;
+    let cleanupTimeout;
+    const timeout = setTimeout(() => {
+      settled = true;
+      cleanupTimeout = setTimeout(() => cleanup(callbackFuncName), 60000);
+      reject(new Error("执行超时；后台命令可能仍在运行，请刷新状态后再操作"));
+    }, timeoutMs);
 
-    // Define the success callback function
     window[callbackFuncName] = (errno, stdout, stderr) => {
+      if (settled) {
+        clearTimeout(cleanupTimeout);
+        cleanup(callbackFuncName);
+        return;
+      }
+      settled = true;
+      clearTimeout(timeout);
       resolve({ errno, stdout, stderr });
       cleanup(callbackFuncName);
     };
@@ -23,8 +33,10 @@ export function exec(command, options) {
     }
 
     try {
-      ksu.exec(command, JSON.stringify(options), callbackFuncName);
+      ksu.exec(command, JSON.stringify(execOptions), callbackFuncName);
     } catch (error) {
+      settled = true;
+      clearTimeout(timeout);
       reject(error);
       cleanup(callbackFuncName);
     }

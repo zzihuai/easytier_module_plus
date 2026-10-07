@@ -11,20 +11,15 @@ LOG_FILE="${MODDIR}/log.log"
 MODULE_PROP="${MODDIR}/module.prop"
 EASYTIER_CORE="${MODDIR}/easytier-core"
 EASYTIER_CLI="${MODDIR}/easytier-cli"
-EASYTIER_WEB="${MODDIR}/easytier-web"
 MODULE_DISABLE_FILE="${MODDIR}/disable"
 CORE_DISABLE_FILE="${MODDIR}/disable_core"
-WEB_DISABLE_FILE="${MODDIR}/disable_web"
 START_ON_BOOT_FILE="${MODDIR}/start_on_boot"
 IP_RULE_ENABLE_FILE="${MODDIR}/enable_IP_rule"
-DEFAULT_WEB_PORT="11211"
-DEFAULT_CONFIG_SERVER_PORT="22020"
-DEFAULT_CONFIG_SERVER_PROTOCOL="udp"
-UPDATE_LOCK="${MODDIR}/update.lock"
 CONTROL_LOCK_DIR="${MODDIR}/run/lock"
+CONTROL_LOCK_OWNER_DIR=""
+CONTROL_LOCK_OWNER_START=""
 RUN_DIR="${MODDIR}/run"
 CORE_PID_FILE="${RUN_DIR}/easytier-core.pid"
-WEB_PID_FILE="${RUN_DIR}/easytier-web.pid"
 
 mkdir -p "${CONFIG_DIR}" "${RUN_DIR}" 2>/dev/null
 
@@ -68,46 +63,144 @@ ensure_tun() {
     fi
 }
 
-is_core_running() {
-    pgrep -f "${MODDIR}/easytier-core" >/dev/null 2>&1
+core_process_start_time() {
+    process_pid="$1"
+    process_executable=$(readlink "/proc/${process_pid}/exe" 2>/dev/null) || return 1
+    case "${process_executable}" in
+        "${EASYTIER_CORE}"|"${EASYTIER_CORE} (deleted)") ;;
+        *) return 1 ;;
+    esac
+    process_stat_line=""
+    IFS= read -r process_stat_line < "/proc/${process_pid}/stat" || return 1
+    process_stat_fields=${process_stat_line##*) }
+    set -- ${process_stat_fields}
+    [ "$#" -ge 20 ] || return 1
+    case "$1" in Z|X) return 1 ;; esac
+    shift 19
+    echo "$1"
 }
 
-is_web_running() {
-    pgrep -f "${MODDIR}/easytier-web" >/dev/null 2>&1
+core_process_records() {
+    CORE_PROCESS_RECORDS=""
+    CORE_PROCESS_COUNT=0
+    CORE_PROCESS_DISCOVERY_ERROR=0
+    if ! command -v pgrep >/dev/null 2>&1; then
+        CORE_PROCESS_DISCOVERY_ERROR=1
+        return 1
+    fi
+
+    candidate_pids=$(pgrep -f 'easytier-core' 2>/dev/null)
+    search_status=$?
+    if [ "${search_status}" -gt 1 ]; then
+        CORE_PROCESS_DISCOVERY_ERROR=1
+        return 1
+    fi
+    for candidate_pid in ${candidate_pids}; do
+        candidate_start_time=$(core_process_start_time "${candidate_pid}") || continue
+        CORE_PROCESS_RECORDS="${CORE_PROCESS_RECORDS}${candidate_pid}:${candidate_start_time} "
+        CORE_PROCESS_COUNT=$((CORE_PROCESS_COUNT + 1))
+    done
+    return 0
+}
+
+core_pid_is_running() {
+    actual_start_time=$(core_process_start_time "$1") || return 1
+    [ "${actual_start_time}" = "$2" ]
+}
+
+is_core_running() {
+    core_process_records || return 2
+    [ "${CORE_PROCESS_COUNT}" -gt 0 ]
+}
+
+write_core_pid() {
+    process_record="$1"
+    process_pid=${process_record%%:*}
+    process_start_time=${process_record#*:}
+    temporary_pid_file="${CORE_PID_FILE}.tmp.$$"
+    printf '%s\n%s\n' "${process_pid}" "${process_start_time}" > "${temporary_pid_file}" || { rm -f "${temporary_pid_file}"; return 1; }
+    mv "${temporary_pid_file}" "${CORE_PID_FILE}"
+}
+
+read_registered_core_pid() {
+    [ -f "${CORE_PID_FILE}" ] || return 1
+    {
+        IFS= read -r registered_core_pid || return 1
+        IFS= read -r registered_core_start_time || return 1
+    } < "${CORE_PID_FILE}"
+    core_pid_is_running "${registered_core_pid}" "${registered_core_start_time}"
+}
+
+validate_core_config() {
+    if [ -f "${COMMAND_ARGS}" ]; then
+        if ! grep -q '[^[:space:]]' "${COMMAND_ARGS}" 2>/dev/null; then
+            log_msg "core start failed: command_args is empty"
+            update_module_description "启动参数文件为空"
+            return 1
+        fi
+        return 0
+    fi
+    if [ ! -f "${CONFIG_FILE}" ]; then
+        log_msg "core start failed: config.toml is missing"
+        update_module_description "缺少配置文件"
+        return 1
+    fi
+    if ! grep -q '[^[:space:]]' "${CONFIG_FILE}" 2>/dev/null; then
+        log_msg "core start failed: config.toml is empty"
+        update_module_description "配置文件为空"
+        return 1
+    fi
+}
+
+read_configuration_status() {
+    if [ ! -f "${CONFIG_FILE}" ]; then config_state="missing";
+    elif grep -q '[^[:space:]]' "${CONFIG_FILE}" 2>/dev/null; then config_state="present";
+    else config_state="empty"; fi
+    if [ -f "${COMMAND_ARGS}" ]; then
+        if grep -q '[^[:space:]]' "${COMMAND_ARGS}" 2>/dev/null; then command_args_state="present";
+        else command_args_state="empty"; fi
+    else command_args_state="missing"; fi
+}
+
+configuration_status_json() {
+    read_configuration_status
+    printf '{"config_state":"%s","command_args_state":"%s"}\n' "${config_state}" "${command_args_state}"
 }
 
 kill_core() {
-    pkill -f "${MODDIR}/easytier-core" >/dev/null 2>&1 || true
+    core_process_records || return 1
+    [ "${CORE_PROCESS_COUNT}" -gt 0 ] || { rm -f "${CORE_PID_FILE}" 2>/dev/null; return 0; }
+    for process_record in ${CORE_PROCESS_RECORDS}; do
+        process_pid=${process_record%%:*}
+        process_start_time=${process_record#*:}
+        core_pid_is_running "${process_pid}" "${process_start_time}" && kill "${process_pid}" 2>/dev/null || true
+    done
+    wait_count=0
+    while [ "${wait_count}" -lt 25 ]; do
+        core_process_records || return 1
+        [ "${CORE_PROCESS_COUNT}" -gt 0 ] || break
+        sleep 0.2
+        wait_count=$((wait_count + 1))
+    done
+    core_process_records || return 1
+    for process_record in ${CORE_PROCESS_RECORDS}; do
+        process_pid=${process_record%%:*}
+        process_start_time=${process_record#*:}
+        core_pid_is_running "${process_pid}" "${process_start_time}" && kill -9 "${process_pid}" 2>/dev/null || true
+    done
+    wait_count=0
+    while [ "${wait_count}" -lt 10 ]; do
+        core_process_records || return 1
+        [ "${CORE_PROCESS_COUNT}" -gt 0 ] || break
+        sleep 0.2
+        wait_count=$((wait_count + 1))
+    done
+    core_process_records || return 1
+    if [ "${CORE_PROCESS_COUNT}" -gt 0 ]; then
+        log_msg "failed to stop easytier-core pid ${process_pid}"
+        return 1
+    fi
     rm -f "${CORE_PID_FILE}" 2>/dev/null
-}
-
-kill_web() {
-    pkill -f "${MODDIR}/easytier-web" >/dev/null 2>&1 || true
-    rm -f "${WEB_PID_FILE}" 2>/dev/null
-}
-
-get_web_port() {
-    if [ -f "${CONFIG_DIR}/web_port" ]; then
-        port=$(tr -dc '0-9' < "${CONFIG_DIR}/web_port" | head -c 5)
-        [ -n "${port}" ] && { echo "${port}"; return; }
-    fi
-    echo "${DEFAULT_WEB_PORT}"
-}
-
-get_config_server_port() {
-    if [ -f "${CONFIG_DIR}/config_server_port" ]; then
-        port=$(tr -dc '0-9' < "${CONFIG_DIR}/config_server_port" | head -c 5)
-        [ -n "${port}" ] && { echo "${port}"; return; }
-    fi
-    echo "${DEFAULT_CONFIG_SERVER_PORT}"
-}
-
-get_config_server_protocol() {
-    if [ -f "${CONFIG_DIR}/config_server_protocol" ]; then
-        proto=$(tr -cd '[:alnum:]_-' < "${CONFIG_DIR}/config_server_protocol" | head -c 16)
-        [ -n "${proto}" ] && { echo "${proto}"; return; }
-    fi
-    echo "${DEFAULT_CONFIG_SERVER_PROTOCOL}"
 }
 
 core_mode() {
@@ -119,12 +212,19 @@ core_mode() {
 }
 
 start_core_once() {
-    ensure_tun
     if [ -f "${CORE_DISABLE_FILE}" ]; then
         log_msg "core start skipped: disabled"
         return 2
     fi
-    if is_core_running; then
+    validate_core_config || return 1
+    core_process_records || { log_msg "core process discovery failed"; return 1; }
+    if [ "${CORE_PROCESS_COUNT}" -gt 1 ]; then
+        log_msg "multiple easytier-core processes found: ${CORE_PROCESS_RECORDS}"
+        update_module_description "检测到多个主程序，请先执行停止或重启"
+        return 1
+    fi
+    if [ "${CORE_PROCESS_COUNT}" -eq 1 ]; then
+        write_core_pid "${CORE_PROCESS_RECORDS%% *}" || { log_msg "failed to register running easytier-core"; return 1; }
         log_msg "core already running"
         return 0
     fi
@@ -133,11 +233,7 @@ start_core_once() {
         update_module_description "主程序缺少二进制文件"
         return 1
     fi
-    if [ ! -f "${CONFIG_FILE}" ] && [ ! -f "${COMMAND_ARGS}" ]; then
-        log_msg "core start failed: missing config.toml or command_args"
-        update_module_description "缺少配置文件或启动参数文件"
-        return 1
-    fi
+    ensure_tun
 
     device_hostname=$(get_device_hostname)
     if [ -f "${COMMAND_ARGS}" ]; then
@@ -150,18 +246,25 @@ start_core_once() {
         fi
         log_msg "starting easytier-core with command_args"
         # shellcheck disable=SC2086
-        TZ=Asia/Shanghai "${EASYTIER_CORE}" ${final_args} > "${LOG_FILE}" 2>&1 &
+        TZ=Asia/Shanghai "${EASYTIER_CORE}" ${final_args} </dev/null > "${LOG_FILE}" 2>&1 &
     else
         log_msg "starting easytier-core with config.toml"
         if grep -q "^[[:space:]]*hostname[[:space:]]*=" "${CONFIG_FILE}" 2>/dev/null; then
-            TZ=Asia/Shanghai "${EASYTIER_CORE}" -c "${CONFIG_FILE}" > "${LOG_FILE}" 2>&1 &
+            TZ=Asia/Shanghai "${EASYTIER_CORE}" -c "${CONFIG_FILE}" </dev/null > "${LOG_FILE}" 2>&1 &
         else
-            TZ=Asia/Shanghai "${EASYTIER_CORE}" -c "${CONFIG_FILE}" --hostname "${device_hostname}" > "${LOG_FILE}" 2>&1 &
+            TZ=Asia/Shanghai "${EASYTIER_CORE}" -c "${CONFIG_FILE}" --hostname "${device_hostname}" </dev/null > "${LOG_FILE}" 2>&1 &
         fi
     fi
-    echo "$!" > "${CORE_PID_FILE}"
-    sleep 2
-    if is_core_running; then
+    launched_pid=$!
+    launched_start_time=""
+    wait_count=0
+    while [ "${wait_count}" -lt 20 ]; do
+        launched_start_time=$(core_process_start_time "${launched_pid}") && break
+        sleep 0.2
+        wait_count=$((wait_count + 1))
+    done
+    if [ -n "${launched_start_time}" ] && core_pid_is_running "${launched_pid}" "${launched_start_time}"; then
+        write_core_pid "${launched_pid}:${launched_start_time}" || { log_msg "failed to register launched easytier-core"; return 1; }
         if ! ip rule show 2>/dev/null | grep -qE '^[0-9]+:[[:space:]]+from all lookup main$'; then
             ip rule add from all lookup main >/dev/null 2>&1 || true
         fi
@@ -170,39 +273,6 @@ start_core_once() {
     fi
     update_module_description "主程序启动失败，请检查配置文件或启动参数"
     return 1
-}
-
-start_web_once() {
-    if [ -f "${WEB_DISABLE_FILE}" ]; then
-        log_msg "web start skipped: disabled"
-        return 2
-    fi
-    if is_web_running; then
-        log_msg "web already running"
-        return 0
-    fi
-    if [ ! -x "${EASYTIER_WEB}" ]; then
-        log_msg "web binary missing or not executable: ${EASYTIER_WEB}"
-        return 1
-    fi
-    web_port=$(get_web_port)
-    cfg_port=$(get_config_server_port)
-    cfg_proto=$(get_config_server_protocol)
-    mkdir -p "${CONFIG_DIR}/web" 2>/dev/null
-    log_msg "starting easytier-web on 0.0.0.0:${web_port}; config server ${cfg_proto}:${cfg_port}"
-    TZ=Asia/Shanghai "${EASYTIER_WEB}" \
-        --db "${CONFIG_DIR}/web/et.db" \
-        --config-server-port "${cfg_port}" \
-        --config-server-protocol "${cfg_proto}" \
-        --api-server-addr 0.0.0.0 \
-        --api-server-port "${web_port}" \
-        --web-server-addr 0.0.0.0 \
-        --file-log-dir "${CONFIG_DIR}/web/logs" \
-        --disable-registration false \
-        > "${MODDIR}/web.log" 2>&1 &
-    echo "$!" > "${WEB_PID_FILE}"
-    sleep 2
-    is_web_running
 }
 
 redir_status() {
@@ -214,46 +284,150 @@ redir_status() {
 }
 
 module_status_json() {
-    if is_core_running; then core_running=true; else core_running=false; fi
-    if is_web_running; then web_running=true; else web_running=false; fi
+    if read_registered_core_pid; then
+        core_discovery_error=false
+        core_running=true
+        CORE_PROCESS_COUNT=1
+    elif core_process_records; then
+        core_discovery_error=false
+        [ "${CORE_PROCESS_COUNT}" -gt 0 ] && core_running=true || core_running=false
+    else
+        core_discovery_error=true
+        core_running=false
+    fi
     if [ -f "${MODULE_DISABLE_FILE}" ]; then module_enabled=false; else module_enabled=true; fi
     if [ -f "${CORE_DISABLE_FILE}" ]; then core_enabled=false; else core_enabled=true; fi
-    if [ -f "${WEB_DISABLE_FILE}" ]; then web_enabled=false; else web_enabled=true; fi
     if [ -f "${START_ON_BOOT_FILE}" ]; then start_on_boot=true; else start_on_boot=false; fi
     if [ -f "${IP_RULE_ENABLE_FILE}" ]; then ip_rule_enabled=true; else ip_rule_enabled=false; fi
-    core_version=""
-    web_version=""
-    if [ -x "${EASYTIER_CORE}" ]; then core_version=$("${EASYTIER_CORE}" --version 2>/dev/null | head -n 1); fi
-    if [ -x "${EASYTIER_WEB}" ]; then web_version=$("${EASYTIER_WEB}" --version 2>/dev/null | head -n 1); fi
-    module_version=$(grep '^version=' "${MODULE_PROP}" 2>/dev/null | head -n 1 | cut -d= -f2-)
+    read_configuration_status
+    module_version=""
+    if [ -r "${MODULE_PROP}" ]; then
+        while IFS= read -r module_property_line; do
+            case "${module_property_line}" in
+                version=*) module_version=${module_property_line#version=}; break ;;
+            esac
+        done < "${MODULE_PROP}"
+    fi
     printf '{'
     printf '"module_enabled":%s,' "${module_enabled}"
     printf '"core_running":%s,' "${core_running}"
-    printf '"web_running":%s,' "${web_running}"
+    printf '"core_count":%s,' "${CORE_PROCESS_COUNT}"
+    printf '"core_discovery_error":%s,' "${core_discovery_error}"
     printf '"core_enabled":%s,' "${core_enabled}"
-    printf '"web_enabled":%s,' "${web_enabled}"
     printf '"start_on_boot":%s,' "${start_on_boot}"
     printf '"ip_rule_enabled":%s,' "${ip_rule_enabled}"
-    printf '"web_url":"http://127.0.0.1:%s/",' "$(get_web_port)"
+    printf '"config_state":"%s",' "${config_state}"
+    printf '"command_args_state":"%s",' "${command_args_state}"
     printf '"config_path":"%s",' "${CONFIG_FILE}"
     printf '"command_args_path":"%s",' "${COMMAND_ARGS}"
-    printf '"module_version":"%s",' "$(printf '%s' "${module_version}" | json_escape)"
-    printf '"core_version":"%s",' "$(printf '%s' "${core_version}" | json_escape)"
-    printf '"web_version":"%s"' "$(printf '%s' "${web_version}" | json_escape)"
+    printf '"module_version":"%s"' "$(printf '%s' "${module_version}" | json_escape)"
     printf '}\n'
 }
 
+current_process_start_time() {
+    current_stat_line=""
+    IFS= read -r current_stat_line < "/proc/$$/stat" || { echo unknown; return 0; }
+    current_stat_fields=${current_stat_line##*) }
+    current_field_index=0
+    for current_stat_field in ${current_stat_fields}; do
+        current_field_index=$((current_field_index + 1))
+        if [ "${current_field_index}" -eq 20 ]; then
+            echo "${current_stat_field}"
+            return 0
+        fi
+    done
+    echo unknown
+}
+
+control_lock_owner_is_alive() {
+    owner_directory="$1"
+    owner_pid=$(sed -n '1p' "${owner_directory}/pid" 2>/dev/null)
+    owner_start_time=$(sed -n '1p' "${owner_directory}/start" 2>/dev/null)
+    case "${owner_pid}" in ''|*[!0-9]*) return 1 ;; esac
+    kill -0 "${owner_pid}" 2>/dev/null || return 1
+    [ "${owner_start_time}" = "unknown" ] && return 0
+    current_owner_start_time=$(process_start_time_for_pid "${owner_pid}") || return 1
+    [ "${current_owner_start_time}" = "${owner_start_time}" ]
+}
+
+process_start_time_for_pid() {
+    owner_stat_line=""
+    IFS= read -r owner_stat_line < "/proc/$1/stat" || return 1
+    owner_stat_fields=${owner_stat_line##*) }
+    set -- ${owner_stat_fields}
+    [ "$#" -ge 20 ] || return 1
+    shift 19
+    echo "$1"
+}
+
+recover_control_lock() {
+    observed_owner_directory=""
+    if [ -L "${CONTROL_LOCK_DIR}" ]; then
+        observed_owner_directory=$(readlink "${CONTROL_LOCK_DIR}" 2>/dev/null)
+        [ -n "${observed_owner_directory}" ] || return 1
+        mkdir "${observed_owner_directory}/reaper" 2>/dev/null || return 1
+        if [ "$(readlink "${CONTROL_LOCK_DIR}" 2>/dev/null)" = "${observed_owner_directory}" ] && \
+            ! control_lock_owner_is_alive "${observed_owner_directory}"; then
+            rm -f "${CONTROL_LOCK_DIR}"
+            rm -rf "${observed_owner_directory}"
+            return 0
+        fi
+        rmdir "${observed_owner_directory}/reaper" 2>/dev/null || true
+        return 1
+    fi
+
+    [ -d "${CONTROL_LOCK_DIR}" ] || return 1
+    mkdir "${CONTROL_LOCK_DIR}/reaper" 2>/dev/null || return 1
+    lock_owner=$(cat "${CONTROL_LOCK_DIR}/pid" 2>/dev/null)
+    lock_start=$(cat "${CONTROL_LOCK_DIR}/start" 2>/dev/null)
+    if [ -n "${lock_owner}" ]; then
+        lock_owner_is_stale=0
+        if ! kill -0 "${lock_owner}" 2>/dev/null; then
+            lock_owner_is_stale=1
+        elif [ -n "${lock_start}" ] && [ "${lock_start}" != "unknown" ]; then
+            current_lock_start=$(process_start_time_for_pid "${lock_owner}")
+            [ "${current_lock_start}" = "${lock_start}" ] || lock_owner_is_stale=1
+        fi
+        if [ "${lock_owner_is_stale}" = 1 ]; then
+            rm -rf "${CONTROL_LOCK_DIR}"
+            return 0
+        fi
+    fi
+    if [ -z "${lock_owner}" ] && [ "${wait_count}" -ge 10 ]; then
+        rm -rf "${CONTROL_LOCK_DIR}"
+        return 0
+    fi
+    rmdir "${CONTROL_LOCK_DIR}/reaper" 2>/dev/null || true
+    return 1
+}
+
 control_lock_acquire() {
-    mkdir -p "${RUN_DIR}" 2>/dev/null
-    i=0
-    while ! mkdir "${CONTROL_LOCK_DIR}" 2>/dev/null; do
-        i=$((i + 1))
-        [ "$i" -gt 50 ] && return 1
+    maximum_wait_count=${1:-50}
+    mkdir -p "${RUN_DIR}" 2>/dev/null || return 1
+    wait_count=0
+    while [ "${wait_count}" -lt "${maximum_wait_count}" ]; do
+        if mkdir "${CONTROL_LOCK_DIR}" 2>/dev/null; then
+            CONTROL_LOCK_OWNER_DIR="$$"
+            CONTROL_LOCK_OWNER_START=$(current_process_start_time)
+            printf '%s\n' "${CONTROL_LOCK_OWNER_DIR}" > "${CONTROL_LOCK_DIR}/pid" || { rm -rf "${CONTROL_LOCK_DIR}"; return 1; }
+            printf '%s\n' "${CONTROL_LOCK_OWNER_START}" > "${CONTROL_LOCK_DIR}/start" || { rm -rf "${CONTROL_LOCK_DIR}"; return 1; }
+            return 0
+        fi
+        recover_control_lock && continue
+        wait_count=$((wait_count + 1))
         sleep 0.1
     done
-    return 0
+    return 1
 }
 
 control_lock_release() {
-    rmdir "${CONTROL_LOCK_DIR}" 2>/dev/null || true
+    [ -n "${CONTROL_LOCK_OWNER_DIR}" ] || return 0
+    lock_owner=$(cat "${CONTROL_LOCK_DIR}/pid" 2>/dev/null)
+    lock_start=$(cat "${CONTROL_LOCK_DIR}/start" 2>/dev/null)
+    if [ "${lock_owner}" = "${CONTROL_LOCK_OWNER_DIR}" ] && [ "${lock_start}" = "${CONTROL_LOCK_OWNER_START}" ]; then
+        rm -f "${CONTROL_LOCK_DIR}/pid" "${CONTROL_LOCK_DIR}/start"
+        rmdir "${CONTROL_LOCK_DIR}" 2>/dev/null || true
+    fi
+    CONTROL_LOCK_OWNER_DIR=""
+    CONTROL_LOCK_OWNER_START=""
 }
