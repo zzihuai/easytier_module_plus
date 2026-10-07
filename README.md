@@ -250,11 +250,6 @@ module/
     └── style.css
 ```
 
-## 本地构建与测试
-
-运行 `python3 scripts/test_regressions.py` 和 `node scripts/test_frontend.mjs` 执行回归测试；Linux 主机上还会编译原生假 core，验证并发启动和多实例停止。macOS 不具备 Linux `/proc` 进程映像接口，原生进程测试会跳过。运行 `bash scripts/package.sh` 生成新安装包，再运行 `python3 scripts/verify.py dist/EasyTier-Magisk-v2.6.4-module-ui4.zip` 验证。
-
-最终的空编辑框键盘行为仍需在 Android 管理器 WebView 上验收。
 
 ## 注意事项
 
