@@ -8,7 +8,7 @@ import tempfile
 import zipfile
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-ZIP = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / 'dist' / 'EasyTier-Magisk-v2.6.4-module-ui3.zip'
+ZIP = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / 'dist' / 'EasyTier-Magisk-v2.6.4-module-ui4.zip'
 REQUIRED = [
     'module.prop', 'customize.sh', 'service.sh', 'action.sh', 'uninstall.sh',
     'common.sh', 'control.sh', 'easytier-core', 'easytier-cli',

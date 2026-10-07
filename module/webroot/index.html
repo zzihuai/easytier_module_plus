@@ -3,102 +3,145 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#edf0e9" />
   <title>EasyTier 模块控制台</title>
+  <script>
+    try {
+      const themePreference = localStorage.getItem('easytier-theme') || 'system';
+      if (themePreference === 'light' || themePreference === 'dark') {
+        document.documentElement.dataset.theme = themePreference;
+      }
+      const shouldUseDarkColor = themePreference === 'dark'
+        || (themePreference === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      const themeColor = document.querySelector('meta[name="theme-color"]');
+      if (themeColor) themeColor.content = shouldUseDarkColor ? '#11150f' : '#edf0e9';
+    } catch (_) {}
+  </script>
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-  <div class="app">
-    <header class="hero">
-      <div>
-        <p class="eyebrow">EasyTier Magisk / KernelSU / APatch</p>
-        <h1>模块控制台</h1>
-        <p class="subtitle">手动控制 core、编辑配置、更新 arm64 二进制，同时保留开机启动。</p>
+  <svg class="icon-definitions" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="icon-network" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="6" rx="2"/><rect x="2" y="16" width="7" height="6" rx="2"/><rect x="15" y="16" width="7" height="6" rx="2"/><path d="M12 8v4M5.5 16v-4h13v4"/></symbol>
+    <symbol id="icon-power" viewBox="0 0 24 24"><path d="M12 2v10M6 5a9 9 0 1 0 12 0"/></symbol>
+    <symbol id="icon-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M5.4 7a8 8 0 0 1 13-1L20 9M4 15l1.6 3a8 8 0 0 0 13-1"/></symbol>
+    <symbol id="icon-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 12h8M8 16h6"/></symbol>
+    <symbol id="icon-log" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="m7 8 3 3-3 3M13 16h4"/></symbol>
+    <symbol id="icon-settings" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="10" cy="18" r="2"/></symbol>
+    <symbol id="icon-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+    <symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></symbol>
+    <symbol id="icon-moon" viewBox="0 0 24 24"><path d="M20.5 13A9 9 0 0 1 11 3a9 9 0 1 0 9.5 10Z"/></symbol>
+    <symbol id="icon-system" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8m-4-4v4"/></symbol>
+    <symbol id="icon-wifi" viewBox="0 0 24 24"><path d="M2 8a16 16 0 0 1 20 0M5 12a11 11 0 0 1 14 0M8 16a6 6 0 0 1 8 0M12 20h.01"/></symbol>
+  </svg>
+
+  <div class="app-shell">
+    <header class="top-bar">
+      <a class="brand" href="#overview" data-nav="overview" aria-label="EasyTier 概览">
+        <span class="brand-mark"><svg class="icon"><use href="#icon-network"/></svg></span>
+        <span>EasyTier</span>
+      </a>
+      <div class="top-actions">
+        <p id="actionStatus" class="action-status" role="status" aria-live="polite">正在连接模块...</p>
+        <button id="refreshBtn" class="icon-button" type="button" aria-label="刷新运行状态" title="刷新运行状态"><svg class="icon"><use href="#icon-refresh"/></svg></button>
       </div>
-      <button id="refreshBtn" class="ghost">刷新</button>
     </header>
-    <p id="actionStatus" class="action-status" role="status" aria-live="polite">正在连接模块...</p>
 
-    <section class="card grid two">
-      <div>
-        <h2>运行状态</h2>
-        <div class="status-row"><span>模块</span><b id="moduleEnabled">-</b></div>
-        <div class="status-row"><span>Core</span><b id="coreState">-</b></div>
-        <div class="status-row"><span>配置</span><b id="configState">-</b></div>
-        <div class="status-row"><span>开机启动</span><b id="bootState">-</b></div>
-        <div class="status-row"><span>热点转发</span><b id="ipRuleState">-</b></div>
-      </div>
-      <div>
-        <h2>版本信息</h2>
-        <div class="mono small" id="versionInfo">加载中...</div>
-      </div>
-    </section>
+    <main class="page-container">
+      <section id="overviewPage" class="page" data-page="overview" aria-labelledby="overviewTitle">
+        <div class="page-heading"><p class="eyebrow">模块状态</p><h1 id="overviewTitle">一切尽在掌握</h1><p class="page-description">查看 EasyTier 运行状态与常用操作。</p></div>
+        <section class="core-hero" aria-labelledby="coreTitle">
+          <div class="hero-heading"><span class="hero-icon"><svg class="icon"><use href="#icon-network"/></svg></span><span id="moduleEnabled" class="status-chip">状态读取中</span></div>
+          <h2 id="coreTitle">正在读取 Core 状态</h2>
+          <p id="coreDetails" class="hero-description" aria-live="polite">请稍候...</p>
+          <div class="hero-actions">
+            <button id="coreActionBtn" class="button button-primary" type="button" disabled><svg class="icon"><use href="#icon-power"/></svg><span>读取状态中</span></button>
+            <button id="restartCoreBtn" class="button button-tonal" type="button" disabled><svg class="icon"><use href="#icon-refresh"/></svg><span>重启</span></button>
+          </div>
+        </section>
 
-    <section class="card">
-      <h2>Core 控制</h2>
-      <div class="buttons">
-        <button data-cmd="start-core">启动 core</button>
-        <button data-cmd="stop-core" class="danger">停止 core</button>
-        <button data-cmd="restart-core" class="warn">重启 core</button>
-      </div>
-      <div class="buttons second">
-        <button data-cmd="enable-boot">启用开机启动</button>
-        <button data-cmd="disable-boot" class="danger">关闭开机启动并停止</button>
-      </div>
-    </section>
+        <h2 class="section-title">启动偏好</h2>
+        <section class="list-group" aria-label="启动偏好">
+          <div class="list-row">
+            <span class="row-icon"><svg class="icon"><use href="#icon-power"/></svg></span>
+            <span class="row-copy"><span class="row-title">开机启动</span><span class="row-supporting">设备重启后自动运行 Core</span></span>
+            <button id="bootSwitch" class="switch-touch-target" type="button" role="switch" aria-checked="false" aria-label="开机启动" disabled><span class="switch-track"><span class="switch-thumb"></span></span></button>
+          </div>
+          <div class="list-row">
+            <span class="row-icon"><svg class="icon"><use href="#icon-wifi"/></svg></span>
+            <span class="row-copy"><span class="row-title">热点转发</span><span class="row-supporting">通过模块 Action 管理转发</span></span>
+            <span id="ipRuleState" class="trailing-state">读取中</span>
+          </div>
+        </section>
 
-    <section class="card">
-      <div class="section-head">
-        <div>
-          <h2>config.toml 预览 / 编辑</h2>
-          <p>配置为空时也可以直接输入；保存后不会自动重启 core。</p>
+        <h2 class="section-title">当前配置</h2>
+        <section class="list-group">
+          <button class="list-row row-button" type="button" data-nav="config" aria-label="打开配置页面">
+            <span class="row-icon"><svg class="icon"><use href="#icon-file"/></svg></span>
+            <span class="row-copy"><span class="row-title">启动配置</span><span id="configSummary" class="row-supporting">正在读取配置状态</span></span>
+            <svg class="icon row-chevron" aria-hidden="true"><use href="#icon-chevron"/></svg>
+          </button>
+        </section>
+        <p class="supporting-note">Core 运行状态不代表网络已连通。需要排查连接时，请查看运行日志。</p>
+      </section>
+
+      <section id="configPage" class="page" data-page="config" aria-labelledby="configPageTitle" hidden>
+        <div class="page-heading"><p class="eyebrow">连接设置</p><h1 id="configPageTitle">配置</h1><p class="page-description">编辑启动所需的配置内容。</p></div>
+        <div class="segmented-control" role="tablist" aria-label="配置类型">
+          <button id="configTab" class="segment" type="button" role="tab" aria-controls="configPanel" aria-selected="true">配置文件</button>
+          <button id="argsTab" class="segment" type="button" role="tab" aria-controls="argsPanel" aria-selected="false">启动参数</button>
+        </div>
+        <p id="modeHint" class="supporting-note">保存配置不会自动重启 Core。</p>
+        <section id="configPanel" class="editor-panel" role="tabpanel" aria-labelledby="configTab">
+          <div class="editor-heading"><div><h2 id="configFilename">config.toml</h2><span id="configFileState" class="state-label">正在读取</span></div><button id="editConfigBtn" class="button button-text" type="button">开始编辑</button></div>
+          <label class="visually-hidden" for="configEditor">EasyTier 配置编辑器</label>
+          <textarea id="configEditor" name="config" rows="16" tabindex="0" inputmode="text" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="配置为空，可以直接输入"></textarea>
           <p id="configFeedback" class="editor-feedback" role="status" aria-live="polite">正在读取配置...</p>
-        </div>
-        <div class="buttons compact">
-          <button id="editConfigBtn" type="button">开始编辑</button>
-          <button id="loadConfigBtn">重新读取</button>
-          <button id="saveConfigBtn" class="primary">保存配置</button>
-        </div>
-      </div>
-      <textarea id="configEditor" name="config" rows="16" tabindex="0" inputmode="text" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="EasyTier 配置编辑器" placeholder="正在读取配置..."></textarea>
-    </section>
+          <div class="editor-actions"><button id="loadConfigBtn" class="button button-outline" type="button">重新读取</button><button id="saveConfigBtn" class="button button-primary" type="button"><svg class="icon"><use href="#icon-check"/></svg><span>保存配置</span></button></div>
+        </section>
+        <section id="argsPanel" class="editor-panel" role="tabpanel" aria-labelledby="argsTab" hidden>
+          <div class="editor-heading"><div><h2 id="argsFilename">command_args</h2><span id="argsFileState" class="state-label">正在读取</span></div></div>
+          <p class="supporting-note">启动参数文件存在时优先使用，并忽略 config.toml。</p>
+          <label class="visually-hidden" for="argsEditor">EasyTier 启动参数编辑器</label>
+          <textarea id="argsEditor" name="commandArgs" rows="7" tabindex="0" inputmode="text" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="启动参数文件不存在时这里为空"></textarea>
+          <p id="argsFeedback" class="editor-feedback" role="status" aria-live="polite">正在读取启动参数...</p>
+          <div class="editor-actions"><button id="removeArgsBtn" class="button button-text-danger" type="button">删除参数文件</button><div class="action-pair"><button id="loadArgsBtn" class="button button-outline" type="button">重新读取</button><button id="saveArgsBtn" class="button button-primary" type="button"><svg class="icon"><use href="#icon-check"/></svg><span>保存参数</span></button></div></div>
+        </section>
+      </section>
 
-    <section class="card">
-      <div class="section-head">
-        <div>
-          <h2>启动参数 command_args</h2>
-          <p>如果该文件存在，模块会优先使用启动参数模式并忽略 config.toml。</p>
-        </div>
-        <div class="buttons compact">
-          <button id="loadArgsBtn">读取</button>
-          <button id="saveArgsBtn" class="primary">保存</button>
-          <button id="removeArgsBtn" class="danger">删除</button>
-        </div>
-      </div>
-      <textarea id="argsEditor" name="commandArgs" rows="4" tabindex="0" inputmode="text" autocapitalize="off" autocomplete="off" autocorrect="off" class="short" spellcheck="false" aria-label="EasyTier 启动参数编辑器" placeholder="command_args 不存在时这里为空"></textarea>
-    </section>
+      <section id="logsPage" class="page" data-page="logs" aria-labelledby="logsTitle" hidden>
+        <div class="page-heading"><p class="eyebrow">问题排查</p><h1 id="logsTitle">运行日志</h1><p class="page-description">查看 Core 最近的运行记录。</p></div>
+        <div class="content-toolbar"><span id="logState" class="state-label">尚未读取</span><button id="coreLogBtn" class="button button-outline" type="button"><svg class="icon"><use href="#icon-refresh"/></svg><span>加载日志</span></button></div>
+        <pre id="logBox" class="log-output" aria-live="polite">点击“加载日志”查看 Core 运行记录。</pre>
+      </section>
 
-    <section class="card">
-      <h2>更新 EasyTier 二进制</h2>
-      <p>按 EasyTier GitHub Release 的 linux-aarch64 资产更新 `easytier-core` 和 `easytier-cli`。</p>
-      <div class="update-row">
-        <input id="tagInput" placeholder="latest 或 v2.6.4" value="latest" />
-        <button id="checkUpdateBtn">检查最新 Release</button>
-        <button id="updateBinaryBtn" class="primary">更新 arm64 二进制</button>
-      </div>
-      <pre id="updateInfo" class="log"></pre>
-    </section>
+      <section id="managementPage" class="page" data-page="management" aria-labelledby="managementTitle" hidden>
+        <div class="page-heading"><p class="eyebrow">应用管理</p><h1 id="managementTitle">管理</h1><p class="page-description">版本、主题与模块维护。</p></div>
+        <section class="version-summary" aria-label="Core 版本"><span class="version-icon"><svg class="icon"><use href="#icon-network"/></svg></span><span><span class="version-name">EasyTier Core</span><span id="coreVersion" class="version-detail">正在读取版本</span></span></section>
+        <h2 class="section-title">外观</h2>
+        <section class="list-group"><div class="list-row"><span class="row-icon"><svg class="icon"><use href="#icon-sun"/></svg></span><label class="row-copy" for="themeSelect"><span class="row-title">主题</span><span class="row-supporting">默认跟随设备外观</span></label><select id="themeSelect" class="theme-select" aria-label="选择主题"><option value="system">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select></div></section>
+        <h2 class="section-title">模块信息</h2>
+        <section class="list-group"><div class="list-row"><span class="row-copy"><span class="row-title">模块版本</span><span id="moduleVersion" class="row-supporting">正在读取</span></span></div><div class="list-row"><span class="row-copy"><span class="row-title">配置文件</span><span id="configPath" class="row-supporting path-value">正在读取</span></span></div><div class="list-row"><span class="row-copy"><span class="row-title">启动参数</span><span id="argsPath" class="row-supporting path-value">正在读取</span></span></div></section>
+        <h2 class="section-title">二进制更新</h2>
+        <section class="editor-panel update-panel"><p class="supporting-note">从 EasyTier GitHub Release 检查并更新 linux-aarch64 的 Core 与 CLI。</p><label class="field-label" for="tagInput">Release 标签</label><input id="tagInput" class="text-input" type="text" value="latest" placeholder="latest 或 v2.6.4" autocapitalize="off" autocomplete="off" spellcheck="false"><p id="updateInfo" class="editor-feedback" role="status" aria-live="polite"></p><div class="editor-actions"><button id="checkUpdateBtn" class="button button-outline" type="button">检查版本</button><button id="updateBinaryBtn" class="button button-primary" type="button">更新二进制</button></div></section>
+      </section>
+    </main>
 
-    <section class="card">
-      <div class="section-head">
-        <h2>日志</h2>
-        <div class="buttons compact">
-          <button id="coreLogBtn">Core 日志</button>
-        </div>
-      </div>
-      <pre id="logBox" class="log"></pre>
-    </section>
+    <nav class="bottom-navigation" aria-label="主导航">
+      <button class="nav-item" type="button" data-nav="overview" aria-current="page"><span class="nav-icon"><svg class="icon"><use href="#icon-network"/></svg></span><span>概览</span></button>
+      <button class="nav-item" type="button" data-nav="config"><span class="nav-icon"><svg class="icon"><use href="#icon-file"/></svg></span><span>配置</span></button>
+      <button class="nav-item" type="button" data-nav="logs"><span class="nav-icon"><svg class="icon"><use href="#icon-log"/></svg></span><span>日志</span></button>
+      <button class="nav-item" type="button" data-nav="management"><span class="nav-icon"><svg class="icon"><use href="#icon-settings"/></svg></span><span>管理</span></button>
+    </nav>
   </div>
 
+  <div id="snackbar" class="snackbar" role="status" aria-live="polite" hidden></div>
+  <div id="confirmFallback" class="dialog-fallback" role="presentation" hidden>
+    <section class="confirmation-card" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMessage">
+      <h2 id="confirmTitle">确认操作</h2><p id="confirmMessage"></p><div class="confirmation-actions"><button id="cancelAction" class="button button-tonal" type="button">取消</button><button id="confirmAction" class="button button-primary" type="button">确认</button></div>
+    </section>
+  </div>
+  <dialog id="confirmation" class="confirmation-dialog" aria-labelledby="dialogTitle" aria-describedby="dialogMessage"><h2 id="dialogTitle">确认操作</h2><p id="dialogMessage"></p><div class="confirmation-actions"><button id="cancelDialog" class="button button-tonal" type="button">取消</button><button id="confirmDialog" class="button button-primary" type="button">确认</button></div></dialog>
   <script type="module" src="./app.js"></script>
 </body>
 </html>

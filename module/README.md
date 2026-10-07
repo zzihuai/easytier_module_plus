@@ -2,12 +2,12 @@
 
 这是基于 [EasyTier/EasyTier](https://github.com/EasyTier/EasyTier) 的 Android 模块，用于在 Magisk / KernelSU / APatch 环境中运行 EasyTier，并通过管理器模块前端提供控制台。
 
-当前打包版本：`v2.6.4-module-ui3`
+当前打包版本：`v2.6.4-module-ui4`
 
 仓库内已附带可刷入 zip：
 
 ```text
-dist/EasyTier-Magisk-v2.6.4-module-ui3.zip
+dist/EasyTier-Magisk-v2.6.4-module-ui4.zip
 ```
 
 模块安装后的默认目录：
@@ -50,7 +50,7 @@ dist/EasyTier-Magisk-v2.6.4-module-ui3.zip
 1. 将仓库内的以下 zip 复制到手机：
 
    ```text
-   dist/EasyTier-Magisk-v2.6.4-module-ui3.zip
+   dist/EasyTier-Magisk-v2.6.4-module-ui4.zip
    ```
 
 2. 在 Magisk / KernelSU / APatch 中刷入该模块。
@@ -61,20 +61,20 @@ dist/EasyTier-Magisk-v2.6.4-module-ui3.zip
 
 在 KernelSU/APatch 管理器中打开 EasyTier 模块页面，然后进入模块前端。
 
-模块前端包含以下区域：
+模块前端采用 Material You 风格，包含四个页面：
 
-- 运行状态
-- Core 控制
-- `config.toml` 预览 / 编辑
-- `command_args` 启动参数编辑
-- EasyTier core/CLI 二进制更新
-- 日志查看
+- **概览：** Core 状态、启停/重启、开机启动和热点转发状态。
+- **配置：** `config.toml` 与 `command_args` 编辑、保存及删除。
+- **日志：** 按需读取 Core 最近日志，不自动轮询。
+- **管理：** 模块/Core 版本、配置路径、Release 更新和外观设置。
+
+主题默认为跟随系统，也可选择浅色或深色；可用时会记住选择。页面切换不会清除未保存的编辑草稿。
 
 保存配置后不会自动重启 core。如需让配置立即生效，请点击模块前端中的“重启 core”。
 
 配置文件不存在、零字节或只包含空白时，前端会显示具体状态；启动 core 会被拒绝。空的 `command_args` 同样不能用于启动。
 
-空配置编辑框保留原生文本输入行为；如果点按不弹出键盘，可点击“开始编辑”直接聚焦。保存和读取配置不会禁用编辑框。
+配置编辑器使用原生文本输入控件，支持空内容输入、显式聚焦和独立的读取/保存反馈。Android 键盘行为仍需在目标管理器 WebView 上实际验收。
 
 Core 的启动、停止、重启和守护共用进程锁。正常状态查询使用登记的 PID 快速校验；启动和停止会核对模块二进制的实际进程身份，重启会清理所有已确认的重复实例。无法确认进程时不会尝试再启动一个。
 
@@ -255,7 +255,7 @@ module/
 
 ## 本地构建与测试
 
-运行 `python3 scripts/test_regressions.py` 和 `node scripts/test_frontend.mjs` 执行回归测试；Linux 主机上还会编译原生假 core，验证并发启动和多实例停止。macOS 不具备 Linux `/proc` 进程映像接口，原生进程测试会跳过。运行 `bash scripts/package.sh` 生成新安装包，再运行 `python3 scripts/verify.py dist/EasyTier-Magisk-v2.6.4-module-ui3.zip` 验证。
+运行 `python3 scripts/test_regressions.py` 和 `node scripts/test_frontend.mjs` 执行回归测试；Linux 主机上还会编译原生假 core，验证并发启动和多实例停止。macOS 不具备 Linux `/proc` 进程映像接口，原生进程测试会跳过。运行 `bash scripts/package.sh` 生成新安装包，再运行 `python3 scripts/verify.py dist/EasyTier-Magisk-v2.6.4-module-ui4.zip` 验证。
 
 最终的空编辑框键盘行为仍需在 Android 管理器 WebView 上验收。
 

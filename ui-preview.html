@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>EasyTier · Material You 交互原型</title>
+  <style>
+    :root { color-scheme:light; --page:#edf0e9; --surface:#f8faf3; --card:#eef2e7; --raised:#fff; --ink:#20261e; --muted:#687161; --primary:#426831; --on-primary:#fff; --accent:#d4edbf; --accent-ink:#27431b; --line:#dce2d4; --danger:#a33c31; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--page); color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; font-size:15px; }
+    body.dark { color-scheme:dark; --page:#11150f; --surface:#191e16; --card:#242c20; --raised:#2c3526; --ink:#e4eadb; --muted:#abb6a1; --primary:#abd28e; --on-primary:#1e370f; --accent:#334b27; --accent-ink:#d4edbf; --line:#3b4534; --danger:#ffb4a8; }
+    button,input,textarea { font:inherit; }
+    button { cursor:pointer; -webkit-tap-highlight-color:transparent; }
+    button:disabled { opacity:.45; cursor:default; }
+    button:focus-visible,input:focus-visible,textarea:focus-visible { outline:3px solid var(--primary); outline-offset:4px; }
+    button { transition:background .16s,transform .16s; }
+    button:active:not(:disabled) { transform:scale(.97); }
+    .layout { max-width:1090px; margin:auto; padding:48px 30px; display:grid; grid-template-columns:1fr 412px; gap:100px; align-items:start; }
+    .intro { padding-top:90px; position:sticky; top:25px; }
+    .eyebrow { color:var(--primary); font-size:12px; font-weight:700; letter-spacing:.15em; }
+    .intro h1 { font-size:46px; font-weight:500; line-height:1.2; letter-spacing:-2px; margin:22px 0; }
+    .intro p { color:var(--muted); line-height:1.9; max-width:350px; }
+    .legend { border-top:1px solid var(--line); margin-top:35px; padding-top:22px; }
+    .legend p { font-size:13px; }
+    .swatches { display:flex; gap:8px; margin:25px 0; }
+    .swatches span { width:36px; height:36px; border-radius:50%; border:1px solid var(--line); }
+    .phone { background:var(--surface); border:1px solid var(--line); border-radius:38px; overflow:hidden; min-height:840px; position:relative; }
+    .system-bar { display:flex; justify-content:space-between; padding:18px 26px 12px; font-size:12px; font-weight:600; }
+    .system-icons { display:flex; align-items:center; gap:7px; }
+    svg { width:23px; height:23px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0; }
+    .system-icons svg { width:16px; height:16px; }
+    .toolbar { display:flex; align-items:center; justify-content:space-between; padding:12px 22px; }
+    .brand { display:flex; gap:9px; align-items:center; font-weight:650; font-size:18px; }
+    .brand svg { color:var(--primary); }
+    .icon-button { width:44px; height:44px; border:0; border-radius:50%; display:grid; place-items:center; color:var(--ink); background:var(--card); }
+    .prototype-label { padding:0 24px; font-size:11px; color:var(--muted); letter-spacing:.03em; }
+    main { padding:10px 20px 112px; min-height:655px; }
+    .page-title { font-size:32px; font-weight:450; letter-spacing:-1px; margin:12px 3px 22px; }
+    .hero { background:var(--accent); border-radius:28px; padding:25px; color:var(--accent-ink); }
+    .hero-top { display:flex; justify-content:space-between; align-items:center; }
+    .hero-symbol { width:54px; height:54px; border-radius:20px; display:grid; place-items:center; background:var(--surface); }
+    .hero-symbol svg { width:30px; height:30px; }
+    .chip { font-size:12px; padding:7px 11px; border-radius:30px; background:var(--surface); color:var(--primary); }
+    .hero h2 { margin:23px 0 6px; font-size:29px; font-weight:500; letter-spacing:-.8px; }
+    .hero p { margin:0; font-size:13px; opacity:.85; }
+    .actions { display:flex; gap:10px; margin-top:24px; }
+    .pill { border:0; border-radius:30px; padding:13px 19px; min-height:48px; display:inline-flex; align-items:center; justify-content:center; gap:8px; font-weight:600; font-size:14px; }
+    .pill.primary { background:var(--primary); color:var(--on-primary); }
+    .pill.tonal { background:var(--surface); color:var(--primary); }
+    .pill.outline { border:1px solid var(--line); color:var(--primary); background:transparent; }
+    .actions .pill { flex:1; }
+    .pill svg { width:19px; height:19px; }
+    .section-label { font-size:12px; font-weight:600; color:var(--primary); margin:26px 12px 10px; }
+    .group { border-radius:23px; overflow:hidden; background:var(--card); }
+    .row { display:flex; gap:15px; align-items:center; padding:18px; width:100%; text-align:left; border:0; color:var(--ink); background:transparent; min-height:80px; }
+    .row+.row { border-top:2px solid var(--surface); }
+    .row>svg { color:var(--muted); }
+    .row-copy { flex:1; min-width:0; }
+    .row-title { font-size:15px; display:block; font-weight:550; }
+    .row small { display:block; font-size:12px; line-height:1.6; color:var(--muted); margin-top:4px; }
+    .chevron { width:17px; }
+    .switch { border:2px solid var(--muted); width:49px; height:29px; border-radius:24px; background:var(--line); display:flex; align-items:center; padding:3px; flex-shrink:0; }
+    .switch::after { content:""; width:16px; height:16px; border-radius:50%; background:var(--muted); }
+    .switch[aria-checked="true"] { background:var(--primary); border-color:var(--primary); justify-content:flex-end; }
+    .switch[aria-checked="true"]::after { background:var(--on-primary); width:21px; height:21px; }
+    .note { color:var(--muted); font-size:12px; line-height:1.8; padding:0 10px; margin:17px 0; }
+    .navigation { position:absolute; bottom:0; left:0; right:0; display:flex; background:var(--card); padding:12px 8px 24px; border-top:1px solid var(--line); }
+    .navigation button { flex:1; background:none; border:0; color:var(--muted); font-size:11px; font-weight:600; display:grid; justify-items:center; gap:5px; }
+    .nav-icon { border-radius:24px; padding:4px 19px; display:grid; place-items:center; }
+    .navigation button[aria-current="page"] { color:var(--ink); }
+    .navigation button[aria-current="page"] .nav-icon { background:var(--accent); color:var(--accent-ink); }
+    .home-indicator { position:absolute; bottom:8px; width:95px; height:4px; background:var(--ink); border-radius:5px; left:50%; transform:translateX(-50%); }
+    [hidden] { display:none!important; }
+    .segmented { display:flex; border:1px solid var(--line); border-radius:28px; padding:4px; margin-bottom:20px; }
+    .segmented button { flex:1; padding:11px 5px; background:none; border:0; border-radius:24px; color:var(--muted); font-size:13px; }
+    .segmented button[aria-selected="true"] { background:var(--accent); color:var(--accent-ink); font-weight:600; }
+    .editor-head { display:flex; align-items:center; justify-content:space-between; margin:20px 4px 12px; font-size:13px; }
+    .editor-wrap { background:var(--card); border-radius:22px; padding:17px; }
+    textarea { width:100%; min-height:267px; resize:vertical; border:0; background:transparent; color:var(--ink); font:13px/1.9 ui-monospace,SFMono-Regular,Consolas,monospace; caret-color:var(--primary); }
+    .editor-status { font-size:12px; color:var(--primary); line-height:1.7; min-height:22px; margin:10px 4px; }
+    .editor-tools { display:flex; justify-content:space-between; margin-top:15px; }
+    .text-button { border:0; background:transparent; color:var(--primary); padding:12px; font-size:13px; }
+    .log-lines { background:var(--card); padding:18px; border-radius:22px; font:12px/2 ui-monospace,monospace; white-space:pre-wrap; overflow-wrap:anywhere; min-height:330px; }
+    .version { display:flex; align-items:center; gap:17px; background:var(--accent); padding:24px; border-radius:26px; margin-bottom:24px; }
+    .version strong { font-size:23px; font-weight:500; }
+    .version small { display:block; margin-top:5px; color:var(--muted); }
+    input { width:100%; border:1px solid var(--line); border-radius:15px; padding:15px; background:var(--surface); color:var(--ink); margin-bottom:12px; }
+    .snackbar { position:fixed; bottom:28px; left:50%; transform:translateX(-50%); background:var(--ink); color:var(--surface); padding:15px 22px; border-radius:16px; font-size:13px; max-width:90vw; z-index:5; }
+    dialog { background:var(--surface); color:var(--ink); border:0; border-radius:28px; padding:27px; max-width:350px; width:calc(100% - 40px); }
+    dialog::backdrop { background:#0006; }
+    dialog h2 { font-weight:500; font-size:23px; margin:0 0 15px; }
+    dialog p { font-size:14px; line-height:1.8; color:var(--muted); }
+    .dialog-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:25px; }
+    @media(max-width:800px) { .layout { display:block; padding:0; } .intro { display:none; } .phone { border:0; border-radius:0; max-width:480px; margin:auto; min-height:100dvh; } .system-bar { display:none; } .toolbar { padding-top:max(16px,env(safe-area-inset-top)); } main { min-height:calc(100dvh - 100px); } .navigation { position:fixed; max-width:480px; margin:auto; padding-bottom:max(22px,env(safe-area-inset-bottom)); } .snackbar { bottom:105px; } }
+    @media(prefers-reduced-motion:reduce) { button { transition:none; } }
+  </style>
+</head>
+<body>
+  <svg aria-hidden="true" style="display:none"><defs>
+    <symbol id="network" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="6" rx="2"/><rect x="2" y="16" width="7" height="6" rx="2"/><rect x="15" y="16" width="7" height="6" rx="2"/><path d="M12 8v4M5.5 16v-4h13v4"/></symbol>
+    <symbol id="power" viewBox="0 0 24 24"><path d="M12 2v10M6 5a9 9 0 1 0 12 0"/></symbol>
+    <symbol id="refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M5.4 7a8 8 0 0 1 13-1L20 9M4 15l1.6 3a8 8 0 0 0 13-1"/></symbol>
+    <symbol id="settings" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="2" fill="var(--surface)"/><circle cx="16" cy="12" r="2" fill="var(--surface)"/><circle cx="10" cy="18" r="2" fill="var(--surface)"/></symbol>
+    <symbol id="file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 12h8M8 16h6"/></symbol>
+    <symbol id="log" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="m7 8 3 3-3 3M13 16h4"/></symbol>
+    <symbol id="arrow" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+    <symbol id="moon" viewBox="0 0 24 24"><path d="M20.5 13A9 9 0 0 1 11 3a9 9 0 1 0 9.5 10Z"/></symbol>
+    <symbol id="check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="wifi" viewBox="0 0 24 24"><path d="M2 8a16 16 0 0 1 20 0M5 12a11 11 0 0 1 14 0M8 16a6 6 0 0 1 8 0M12 20h.01"/></symbol>
+  </defs></svg>
+  <div class="layout">
+    <aside class="intro">
+      <span class="eyebrow">EASYTIER / DESIGN PREVIEW 01</span>
+      <h1>少一点控制台。<br>多一点原生感。</h1>
+      <p>以 Pixel 的 Material You 为视觉方向。柔和的鼠尾草绿、留白和明确的操作层级，让网络模块也像手机里的日常应用。</p>
+      <div class="swatches" aria-hidden="true"><span style="background:var(--surface)"></span><span style="background:var(--card)"></span><span style="background:var(--accent)"></span><span style="background:var(--primary)"></span></div>
+      <div class="legend"><p>01　首页只关注状态与核心操作<br>02　配置独立成页，编辑不中断<br>03　日志与管理功能按需进入</p><p>右侧可直接操作，也可缩窄窗口查看手机布局。<br>点击右上角可切换浅色 / 深色。</p><p><strong>独立交互原型</strong> · 全部为模拟数据<br>不会读取配置、调用 root 或控制真实进程。</p></div>
+    </aside>
+    <div class="phone">
+      <div class="system-bar" aria-hidden="true"><span>9:41</span><span class="system-icons"><svg><use href="#wifi"/></svg><span>100%</span></span></div>
+      <header class="toolbar"><div class="brand"><svg><use href="#network"/></svg>EasyTier</div><button id="themeButton" class="icon-button" aria-label="切换深色主题" aria-pressed="false"><svg><use href="#moon"/></svg></button></header>
+      <div class="prototype-label">交互预览 · 模拟数据，不连接设备</div>
+      <main>
+        <section data-page="overview">
+          <h1 class="page-title">一切，尽在掌握。</h1>
+          <div class="hero">
+            <div class="hero-top"><div class="hero-symbol"><svg><use href="#network"/></svg></div><span id="statusChip" class="chip">Core 已启动</span></div>
+            <h2 id="coreTitle" aria-live="polite">正在运行</h2><p id="coreSubtitle">配置文件模式 · 模块已启用</p>
+            <div class="actions"><button id="powerButton" class="pill primary"><svg><use href="#power"/></svg><span>停止 Core</span></button><button id="restartButton" class="pill tonal"><svg><use href="#refresh"/></svg>重启</button></div>
+          </div>
+          <h2 class="section-label">启动偏好</h2>
+          <div class="group"><div class="row"><svg><use href="#power"/></svg><div class="row-copy"><span class="row-title">开机启动</span><small>设备重启后自动运行 Core</small></div><button id="bootSwitch" class="switch" role="switch" aria-checked="true" aria-label="开机启动"></button></div><div class="row"><svg><use href="#wifi"/></svg><div class="row-copy"><span class="row-title">热点转发</span><small>通过模块 Action 切换转发</small></div><span class="chip">已激活</span></div></div>
+          <h2 class="section-label">当前配置</h2><div class="group"><button class="row" data-goto="config"><svg><use href="#file"/></svg><span class="row-copy"><span class="row-title">config.toml</span><small id="configSummary">配置已就绪 · 点击编辑</small></span><svg class="chevron"><use href="#arrow"/></svg></button></div>
+          <p class="note">Core 运行状态不代表网络已连通。<br>连接详情可通过日志查看。</p>
+        </section>
+        <section data-page="config" hidden>
+          <h1 class="page-title">配置</h1>
+          <div class="segmented" role="tablist" aria-label="配置类型"><button role="tab" aria-selected="true" id="configTab">配置文件</button><button role="tab" aria-selected="false" id="argsTab">启动参数</button></div>
+          <p class="note" id="modeHint">编辑 config.toml。保存不会自动重启 Core。</p>
+          <div class="editor-head"><strong id="editorFilename">config.toml</strong><span class="chip" id="draftChip">已保存</span></div>
+          <div class="editor-wrap"><textarea id="editor" aria-label="配置编辑器" spellcheck="false" autocapitalize="off" autocomplete="off" inputmode="text" placeholder="配置为空，在此输入内容"></textarea></div>
+          <p id="editorStatus" class="editor-status" role="status">配置已读取，可以直接编辑。</p>
+          <div class="editor-tools"><button id="reloadButton" class="pill outline">重新读取</button><button id="saveButton" class="pill primary"><svg><use href="#check"/></svg>保存配置</button></div>
+          <button id="emptyButton" class="text-button">体验空配置编辑</button>
+          <button id="deleteArgsButton" class="text-button" hidden>删除启动参数文件</button>
+          <p class="note">示例仅暂存于当前页面，刷新页面后重置。<br>切换页面不会丢失本次输入。</p>
+        </section>
+        <section data-page="logs" hidden><h1 class="page-title">日志</h1><div class="editor-head"><span>Core 运行记录</span><button id="refreshLogs" class="pill outline"><svg><use href="#refresh"/></svg>刷新</button></div><pre id="logOutput" class="log-lines"></pre><p class="note">这些记录是交互演示生成的模拟日志。</p></section>
+        <section data-page="settings" hidden><h1 class="page-title">管理</h1><div class="version"><svg><use href="#network"/></svg><div><strong>EasyTier</strong><small>Core v2.6.4 · arm64</small></div></div><h2 class="section-label">版本与更新</h2><div class="group"><div class="row"><span class="row-copy"><span class="row-title">模块版本</span><small>v2.6.4-module-ui3</small></span><span class="chip">当前版本</span></div><button class="row" id="checkUpdate"><span class="row-copy"><span class="row-title">检查更新</span><small>从 GitHub Release 获取版本</small></span><svg class="chevron"><use href="#arrow"/></svg></button></div><h2 class="section-label">指定版本</h2><label class="note" for="versionInput">Release 标签</label><input id="versionInput" value="latest" placeholder="latest 或 v2.6.4"><button id="updateButton" class="pill primary">更新 Core / CLI</button><p class="note">此示例不访问 GitHub，也不下载或替换文件。</p></section>
+      </main>
+      <nav class="navigation" aria-label="主导航"><button data-target="overview" aria-current="page"><span class="nav-icon"><svg><use href="#network"/></svg></span>概览</button><button data-target="config"><span class="nav-icon"><svg><use href="#file"/></svg></span>配置</button><button data-target="logs"><span class="nav-icon"><svg><use href="#log"/></svg></span>日志</button><button data-target="settings"><span class="nav-icon"><svg><use href="#settings"/></svg></span>管理</button><div class="home-indicator" aria-hidden="true"></div></nav>
+    </div>
+  </div>
+  <div id="snackbar" class="snackbar" role="status" hidden></div>
+  <dialog id="confirmation"><h2 id="dialogTitle"></h2><p id="dialogMessage"></p><div class="dialog-actions"><button id="cancelDialog" class="pill tonal">取消</button><button id="confirmDialog" class="pill primary">确认</button></div></dialog>
+  <script>
+    const select = (identifier) => document.getElementById(identifier);
+    const draftContents = { config: 'instance_name = "my-android"\n\n[network_identity]\nnetwork_name = "home-network"\nnetwork_secret = "demo-only"\n\n[[peer]]\nuri = "tcp://example.com:11010"\n', args: '' };
+    const savedContents = { ...draftContents };
+    let currentEditor = 'config';
+    let coreRunning = true;
+    let argumentsExist = false;
+    let snackbarTimer;
+    let confirmAction = null;
+    const logEntries = ['09:41:00  INFO  [模拟] 模块前端已打开', '09:41:01  INFO  [模拟] Core 已启动', '09:41:01  INFO  [模拟] 使用 config.toml'];
+
+    function notify(message) {
+      select('snackbar').textContent = message;
+      select('snackbar').hidden = false;
+      clearTimeout(snackbarTimer);
+      snackbarTimer = setTimeout(() => { select('snackbar').hidden = true; }, 3500);
+    }
+    function appendLog(message) {
+      logEntries.push(new Date().toLocaleTimeString('zh-CN', { hour12: false }) + '  INFO  [模拟] ' + message);
+      select('logOutput').textContent = logEntries.join('\n');
+    }
+    function showPage(pageName) {
+      document.querySelectorAll('[data-page]').forEach((page) => { page.hidden = page.dataset.page !== pageName; });
+      document.querySelectorAll('[data-target]').forEach((button) => {
+        if (button.dataset.target === pageName) button.setAttribute('aria-current', 'page');
+        else button.removeAttribute('aria-current');
+      });
+    }
+    function confirmOperation(title, message, action) {
+      select('dialogTitle').textContent = title;
+      select('dialogMessage').textContent = message;
+      confirmAction = action;
+      select('confirmation').showModal();
+    }
+    function renderCore() {
+      select('coreTitle').textContent = coreRunning ? '正在运行' : '已停止';
+      select('statusChip').textContent = coreRunning ? 'Core 已启动' : 'Core 未运行';
+      select('coreSubtitle').textContent = coreRunning ? ((argumentsExist ? '启动参数模式' : '配置文件模式') + ' · 模块已启用') : '准备好后，轻触下方启动';
+      select('powerButton').querySelector('span').textContent = coreRunning ? '停止 Core' : '启动 Core';
+      select('restartButton').disabled = !coreRunning;
+    }
+    function hasLaunchInput() { return (argumentsExist ? savedContents.args : savedContents.config).trim().length > 0; }
+    function renderEditor() {
+      select('editor').value = draftContents[currentEditor];
+      select('editorFilename').textContent = currentEditor === 'config' ? 'config.toml' : 'command_args';
+      select('configTab').setAttribute('aria-selected', String(currentEditor === 'config'));
+      select('argsTab').setAttribute('aria-selected', String(currentEditor === 'args'));
+      select('modeHint').textContent = currentEditor === 'config' ? '编辑 config.toml。保存不会自动重启 Core。' : '启动参数文件存在时优先使用；保存空文件会阻止启动。';
+      select('deleteArgsButton').hidden = currentEditor !== 'args';
+      renderDraft();
+    }
+    function renderDraft() {
+      const dirty = draftContents[currentEditor] !== savedContents[currentEditor];
+      select('draftChip').textContent = dirty ? '未保存' : '已保存';
+      select('editorStatus').textContent = dirty ? '有未保存的修改，切换页面仍会保留。' : (currentEditor === 'args' && !argumentsExist ? '启动参数文件不存在；当前使用配置文件。' : (draftContents[currentEditor].trim() ? '内容已读取，可以直接编辑。' : '文件为空，可以直接输入；空内容不能用于启动。'));
+    }
+    document.querySelectorAll('[data-target]').forEach((button) => button.addEventListener('click', () => showPage(button.dataset.target)));
+    document.querySelectorAll('[data-goto]').forEach((button) => button.addEventListener('click', () => showPage(button.dataset.goto)));
+    select('themeButton').addEventListener('click', () => {
+      const darkTheme = document.body.classList.toggle('dark');
+      select('themeButton').setAttribute('aria-pressed', String(darkTheme));
+      select('themeButton').setAttribute('aria-label', darkTheme ? '切换浅色主题' : '切换深色主题');
+    });
+    select('cancelDialog').addEventListener('click', () => { confirmAction = null; select('confirmation').close(); });
+    select('confirmation').addEventListener('cancel', () => { confirmAction = null; });
+    select('confirmDialog').addEventListener('click', () => { const action = confirmAction; confirmAction = null; select('confirmation').close(); action?.(); });
+    select('powerButton').addEventListener('click', () => {
+      if (coreRunning) confirmOperation('停止 Core？', '这会中断当前连接。本示例只演示确认流程，不操作真实进程。', () => { coreRunning = false; renderCore(); appendLog('Core 已停止'); notify('模拟：Core 已停止'); });
+      else if (!hasLaunchInput()) notify('配置不存在或为空，请先填写并保存');
+      else { coreRunning = true; renderCore(); appendLog('Core 已启动'); notify('模拟：Core 已启动'); }
+    });
+    select('restartButton').addEventListener('click', () => {
+      if (!hasLaunchInput()) return notify('配置不存在或为空，无法重启');
+      confirmOperation('重启 Core？', '将按已保存的内容重新启动。编辑框中未保存的草稿不会生效。', () => { renderCore(); appendLog('Core 已重启'); notify('模拟：已按保存的内容重启'); });
+    });
+    select('bootSwitch').addEventListener('click', () => {
+      if (select('bootSwitch').getAttribute('aria-checked') === 'true') {
+        confirmOperation('关闭开机启动？', '按照现有模块行为，关闭开机启动也会停止 Core。', () => { select('bootSwitch').setAttribute('aria-checked', 'false'); coreRunning = false; renderCore(); appendLog('关闭开机启动并停止 Core'); });
+      } else { select('bootSwitch').setAttribute('aria-checked', 'true'); notify('模拟：已启用开机启动'); }
+    });
+    select('configTab').addEventListener('click', () => { currentEditor = 'config'; renderEditor(); });
+    select('argsTab').addEventListener('click', () => { currentEditor = 'args'; renderEditor(); });
+    select('editor').addEventListener('input', () => { draftContents[currentEditor] = select('editor').value; renderDraft(); });
+    select('saveButton').addEventListener('click', () => {
+      savedContents[currentEditor] = draftContents[currentEditor];
+      if (currentEditor === 'args') argumentsExist = true;
+      renderDraft();
+      select('editorStatus').textContent = '已保存到示例内存；不会自动重启 Core。';
+      select('configSummary').textContent = savedContents.config.trim() ? '配置已就绪 · 点击编辑' : '配置为空 · 点击填写';
+      notify('模拟保存成功'); appendLog('保存 ' + (currentEditor === 'config' ? 'config.toml' : 'command_args'));
+    });
+    select('reloadButton').addEventListener('click', () => {
+      const reload = () => { draftContents[currentEditor] = savedContents[currentEditor]; renderEditor(); notify('已读取示例中保存的内容'); };
+      if (draftContents[currentEditor] !== savedContents[currentEditor]) confirmOperation('放弃未保存的修改？', '重新读取将用上次保存的内容替换当前草稿。', reload);
+      else reload();
+    });
+    select('emptyButton').addEventListener('click', () => {
+      const clearEditor = () => { draftContents[currentEditor] = ''; renderEditor(); select('editor').focus(); };
+      if (draftContents[currentEditor].length) confirmOperation('清空示例编辑框？', '仅清空草稿，不改变已保存内容。可以用“重新读取”恢复。', clearEditor);
+      else clearEditor();
+    });
+    select('deleteArgsButton').addEventListener('click', () => confirmOperation('删除启动参数？', '下次启动将恢复使用 config.toml。此操作仅影响示例数据。', () => { argumentsExist = false; savedContents.args = ''; draftContents.args = ''; renderEditor(); notify('模拟：启动参数文件已删除'); }));
+    select('refreshLogs').addEventListener('click', () => { appendLog('刷新运行记录'); notify('模拟日志已刷新'); });
+    select('checkUpdate').addEventListener('click', () => notify('演示模式：未联网检查版本，不判断是否为最新'));
+    select('updateButton').addEventListener('click', () => confirmOperation('更新 Core / CLI？', '目标版本：' + (select('versionInput').value.trim() || 'latest') + '。实际更新可能中断连接；此处仅预览，不下载文件。', () => notify('已完成更新交互预览，未修改二进制')));
+    renderEditor(); renderCore(); select('logOutput').textContent = logEntries.join('\n');
+  </script>
+</body>
+</html>

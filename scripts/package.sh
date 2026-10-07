@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-OUT="${1:-$ROOT/dist/EasyTier-Magisk-v2.6.4-module-ui3.zip}"
+OUT="${1:-$ROOT/dist/EasyTier-Magisk-v2.6.4-module-ui4.zip}"
 mkdir -p "$(dirname "$OUT")"
 if [[ -e "$OUT" ]]; then
   echo "refusing to overwrite existing package: $OUT" >&2
